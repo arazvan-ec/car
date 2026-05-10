@@ -1,16 +1,28 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.db.session import engine
-from app.db import entities  # noqa: F401 — importar para registrar modelos en Base
-
-# Crear tablas al arrancar
+from app.db import entities  # noqa: F401 — registrar modelos en Base
 from app.db.session import Base
-Base.metadata.create_all(bind=engine)
 
-# Servidor MCP (transporte HTTP streamable, compatible con Manus Custom MCP)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Crea las tablas en PostgreSQL al arrancar la app.
+    Usando lifespan en lugar de import-time para que Railway
+    haya inyectado DATABASE_URL antes de intentar conectar.
+    """
+    Base.metadata.create_all(bind=engine)
+    yield
+    # (aquí iría el teardown si fuera necesario)
+
+
+# Servidor MCP — importar después del lifespan para evitar create_all prematuro
 from mcp_server import get_mcp_app  # noqa: E402
 
 app = FastAPI(
@@ -19,6 +31,7 @@ app = FastAPI(
     description=settings.DESCRIPTION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
