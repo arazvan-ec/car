@@ -14,4 +14,5 @@ COPY . .
 
 EXPOSE 8000
 
+# Un solo proceso: FastAPI sirve tanto la REST API (/api/v1) como el MCP (/mcp)
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

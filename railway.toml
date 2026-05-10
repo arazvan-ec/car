@@ -7,3 +7,7 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 healthcheckPath = "/health"
 healthcheckTimeout = 30
+
+# Variables de entorno requeridas (configurar en Railway Dashboard):
+# DATABASE_URL = ${{Postgres.DATABASE_URL}}
+# API_KEY      = <generar con: python -c "import secrets; print(secrets.token_urlsafe(32))">
