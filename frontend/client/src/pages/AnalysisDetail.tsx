@@ -5,8 +5,8 @@ import { useRoute, Link } from "wouter";
 import { useApiData, type VehicleAnalysis } from "@/hooks/useApi";
 import Layout from "@/components/Layout";
 import { DgtBadge, FuelBadge, StarRating, PressRatingBar, ErrorState, PageHeader } from "@/components/ui-custom";
-import { ArrowLeft, Zap, Shield, Gauge, Euro, Users, Trophy, CheckCircle2, XCircle, AlertTriangle, Info, Ruler, Newspaper } from "lucide-react";
-import { PressReviewsSection } from "./PressReviews";
+import { ArrowLeft, Zap, Shield, Gauge, Euro, Users, Trophy, CheckCircle2, XCircle, AlertTriangle, Info, Ruler } from "lucide-react";
+import { PressReviewsCarousel } from "./PressReviews";
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -143,24 +143,17 @@ export default function AnalysisDetail() {
                 </Section>
               )}
 
-              <Section icon={Newspaper} title="Reviews de Prensa Guardadas">
-                <PressReviewsSection analysisId={a.id} />
-              </Section>
             </div>
 
             <div className="space-y-5">
+              <PressReviewsCarousel analysisId={a.id} pressSummary={a.press_summary} />
+
               <Section icon={Shield} title="Seguridad Euro NCAP">
                 <div className="mb-3"><p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Puntuación global</p><StarRating value={a.euro_ncap_stars} />{a.euro_ncap_year && <p className="text-xs text-muted-foreground mt-1">Test {a.euro_ncap_year}</p>}</div>
                 <NcapBar label="Adultos" value={a.euro_ncap_adult_pct} />
                 <NcapBar label="Niños" value={a.euro_ncap_child_pct} />
                 <NcapBar label="Peatones" value={a.euro_ncap_pedestrian_pct} />
                 <NcapBar label="Asistencia" value={a.euro_ncap_safety_assist_pct} />
-              </Section>
-
-              <Section icon={Trophy} title="Valoración de Prensa">
-                <PressRatingBar value={a.press_rating} />
-                {a.press_summary && <p className="text-xs text-muted-foreground mt-3 italic">"{a.press_summary}"</p>}
-                {a.press_sources?.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{a.press_sources.map(s=><span key={s} className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded font-mono border border-border">{s}</span>)}</div>}
               </Section>
 
               {(a.owner_rating !== null || a.common_complaints?.length > 0) && (
