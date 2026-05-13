@@ -20,6 +20,20 @@ class VehicleAnalysisRepository:
         self.db.refresh(entity)
         return VehicleAnalysisTranslator.to_domain(entity)
 
+    def update(self, analysis_id: UUID, fields: dict) -> Optional[VehicleAnalysis]:
+        """Actualización parcial: solo actualiza los campos presentes en el dict."""
+        entity = self.db.query(VehicleAnalysisEntity).filter(
+            VehicleAnalysisEntity.id == analysis_id
+        ).first()
+        if not entity:
+            return None
+        for key, value in fields.items():
+            if hasattr(entity, key):
+                setattr(entity, key, value)
+        self.db.commit()
+        self.db.refresh(entity)
+        return VehicleAnalysisTranslator.to_domain(entity)
+
     def find_by_id(self, analysis_id: UUID) -> Optional[VehicleAnalysis]:
         entity = self.db.query(VehicleAnalysisEntity).filter(
             VehicleAnalysisEntity.id == analysis_id
@@ -31,6 +45,7 @@ class VehicleAnalysisRepository:
         brand: Optional[str] = None,
         model: Optional[str] = None,
         fuel_type: Optional[str] = None,
+        segment: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> list[VehicleAnalysis]:
@@ -41,6 +56,8 @@ class VehicleAnalysisRepository:
             query = query.filter(VehicleAnalysisEntity.model.ilike(f"%{model}%"))
         if fuel_type:
             query = query.filter(VehicleAnalysisEntity.fuel_type == fuel_type)
+        if segment:
+            query = query.filter(VehicleAnalysisEntity.segment.ilike(f"%{segment}%"))
         entities = query.order_by(
             VehicleAnalysisEntity.created_at.desc()
         ).offset(skip).limit(limit).all()
