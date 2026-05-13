@@ -10,46 +10,41 @@ from app.api.v1.schemas import AnalysisStats
 router = APIRouter()
 
 
-@router.get(
-    "/",
-    response_model=AnalysisStats,
-    summary="Estadísticas de negocio",
-    description=(
-        "Devuelve métricas agregadas sobre los análisis guardados: marcas más "
-        "analizadas, tipos de propulsión, precio medio y valoración media de prensa. "
-        "Diseñado para alimentar dashboards de negocio."
-    ),
-)
-def get_stats(
-    db: Session = Depends(get_db),
-    _: str = Security(require_api_key),
-):
-    total_analyses = db.query(func.count(VehicleAnalysisEntity.id)).scalar()
-    total_comparisons = db.query(func.count(ComparisonEntity.id)).scalar()
+@router.get("/", response_model=AnalysisStats, summary="Estadísticas de negocio")
+def get_stats(db: Session = Depends(get_db), _: str = Security(require_api_key)):
+    total_analyses = db.query(func.count(VehicleAnalysisEntity.id)).scalar() or 0
+    total_comparisons = db.query(func.count(ComparisonEntity.id)).scalar() or 0
 
     top_brands = (
         db.query(VehicleAnalysisEntity.brand, func.count().label("count"))
         .group_by(VehicleAnalysisEntity.brand)
-        .order_by(func.count().desc())
-        .limit(10)
-        .all()
+        .order_by(func.count().desc()).limit(10).all()
     )
-
     top_fuel_types = (
         db.query(VehicleAnalysisEntity.fuel_type, func.count().label("count"))
         .group_by(VehicleAnalysisEntity.fuel_type)
-        .order_by(func.count().desc())
-        .all()
+        .order_by(func.count().desc()).all()
+    )
+    top_segments = (
+        db.query(VehicleAnalysisEntity.segment, func.count().label("count"))
+        .filter(VehicleAnalysisEntity.segment.isnot(None))
+        .group_by(VehicleAnalysisEntity.segment)
+        .order_by(func.count().desc()).limit(10).all()
     )
 
     avg_price = db.query(func.avg(VehicleAnalysisEntity.list_price_eur)).scalar()
-    avg_rating = db.query(func.avg(VehicleAnalysisEntity.press_rating)).scalar()
+    avg_press = db.query(func.avg(VehicleAnalysisEntity.press_rating)).scalar()
+    avg_owner = db.query(func.avg(VehicleAnalysisEntity.owner_rating)).scalar()
+    avg_ncap = db.query(func.avg(VehicleAnalysisEntity.euro_ncap_stars)).scalar()
 
     return AnalysisStats(
-        total_analyses=total_analyses or 0,
-        total_comparisons=total_comparisons or 0,
+        total_analyses=total_analyses,
+        total_comparisons=total_comparisons,
         top_brands=[{"brand": b, "count": c} for b, c in top_brands],
         top_fuel_types=[{"fuel_type": f, "count": c} for f, c in top_fuel_types],
+        top_segments=[{"segment": s, "count": c} for s, c in top_segments],
         avg_price_eur=round(avg_price, 2) if avg_price else None,
-        avg_press_rating=round(avg_rating, 2) if avg_rating else None,
+        avg_press_rating=round(avg_press, 2) if avg_press else None,
+        avg_owner_rating=round(avg_owner, 2) if avg_owner else None,
+        avg_euro_ncap_stars=round(avg_ncap, 2) if avg_ncap else None,
     )
