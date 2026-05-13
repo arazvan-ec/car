@@ -4,6 +4,8 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Pipelines from "./pages/Pipelines";
+import PipelineDetail from "./pages/PipelineDetail";
 import Analyses from "./pages/Analyses";
 import AnalysisDetail from "./pages/AnalysisDetail";
 import Comparisons from "./pages/Comparisons";
@@ -20,6 +22,8 @@ function Router() {
       <Route path="/comparisons" component={Comparisons} />
       <Route path="/comparisons/:id" component={ComparisonDetail} />
       <Route path="/stats" component={StatsPage} />
+      <Route path="/pipelines" component={Pipelines} />
+      <Route path="/pipelines/:id" component={PipelineDetail} />
       <Route component={NotFound} />
     </Switch>
   );

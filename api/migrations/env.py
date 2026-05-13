@@ -14,7 +14,7 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db.session import Base
-from app.db import entities  # noqa: F401 — registrar todos los modelos
+from app.db import entities, pipeline_entities  # noqa: F401 — registrar todos los modelos
 
 config = context.config
 

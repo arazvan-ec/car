@@ -9,6 +9,7 @@ import {
   GitCompare,
   LayoutDashboard,
   Activity,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/analyses", label: "Análisis", icon: Car },
   { href: "/comparisons", label: "Comparativas", icon: GitCompare },
   { href: "/stats", label: "Estadísticas", icon: BarChart3 },
+  { href: "/pipelines", label: "Pipelines", icon: Workflow },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
