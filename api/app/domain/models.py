@@ -104,3 +104,26 @@ class Comparison:
     raw_notes: Optional[str] = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class PressReview:
+    """
+    Review individual de prensa para un análisis de vehículo.
+    Almacena el texto completo, la URL de origen, la puntuación
+    y los puntos clave extraídos de la fuente.
+    """
+    analysis_id: UUID                       # FK al análisis
+    source: str                             # Nombre de la fuente (ej. "km77")
+    url: str                                # URL de la review original
+    rating: Optional[float] = None         # Puntuación de esta fuente (0-10)
+    title: Optional[str] = None            # Título del artículo/review
+    author: Optional[str] = None           # Autor de la review
+    published_date: Optional[str] = None   # Fecha de publicación (ISO string)
+    summary: Optional[str] = None          # Resumen de 2-3 frases
+    full_text: Optional[str] = None        # Texto completo de la review guardado
+    pros: list = field(default_factory=list)   # Puntos fuertes según esta fuente
+    cons: list = field(default_factory=list)   # Puntos débiles según esta fuente
+    verdict: Optional[str] = None          # Veredicto final de la fuente
+    id: UUID = field(default_factory=uuid4)
+    created_at: datetime = field(default_factory=datetime.utcnow)

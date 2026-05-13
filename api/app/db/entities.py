@@ -92,6 +92,7 @@ class VehicleAnalysisEntity(Base):
     # Relaciones
     comparisons_as_a = relationship("ComparisonEntity", foreign_keys="ComparisonEntity.analysis_a_id", back_populates="analysis_a")
     comparisons_as_b = relationship("ComparisonEntity", foreign_keys="ComparisonEntity.analysis_b_id", back_populates="analysis_b")
+    press_reviews = relationship("PressReviewEntity", back_populates="analysis", cascade="all, delete-orphan")
 
 
 class ComparisonEntity(Base):
@@ -108,3 +109,34 @@ class ComparisonEntity(Base):
     raw_notes = Column(Text, nullable=True)
     analysis_a = relationship("VehicleAnalysisEntity", foreign_keys=[analysis_a_id], back_populates="comparisons_as_a")
     analysis_b = relationship("VehicleAnalysisEntity", foreign_keys=[analysis_b_id], back_populates="comparisons_as_b")
+
+
+class PressReviewEntity(Base):
+    """Entidad ORM para reviews individuales de prensa."""
+    __tablename__ = "press_reviews"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    analysis_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("vehicle_analyses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    source = Column(String(100), nullable=False, index=True)
+    url = Column(String(2048), nullable=False)
+    rating = Column(Float, nullable=True)
+    title = Column(String(500), nullable=True)
+    author = Column(String(200), nullable=True)
+    published_date = Column(String(20), nullable=True)
+    summary = Column(Text, nullable=True)
+    full_text = Column(Text, nullable=True)
+    pros = Column(JSON, nullable=True)
+    cons = Column(JSON, nullable=True)
+    verdict = Column(Text, nullable=True)
+
+    analysis = relationship(
+        "VehicleAnalysisEntity",
+        back_populates="press_reviews",
+    )

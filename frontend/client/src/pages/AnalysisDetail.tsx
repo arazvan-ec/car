@@ -5,7 +5,8 @@ import { useRoute, Link } from "wouter";
 import { useApiData, type VehicleAnalysis } from "@/hooks/useApi";
 import Layout from "@/components/Layout";
 import { DgtBadge, FuelBadge, StarRating, PressRatingBar, ErrorState, PageHeader } from "@/components/ui-custom";
-import { ArrowLeft, Zap, Shield, Gauge, Euro, Users, Trophy, CheckCircle2, XCircle, AlertTriangle, Info, Ruler } from "lucide-react";
+import { ArrowLeft, Zap, Shield, Gauge, Euro, Users, Trophy, CheckCircle2, XCircle, AlertTriangle, Info, Ruler, Newspaper } from "lucide-react";
+import { PressReviewsSection } from "./PressReviews";
 
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
@@ -141,6 +142,10 @@ export default function AnalysisDetail() {
                   {a.raw_notes && <p className="text-sm text-muted-foreground whitespace-pre-wrap">{a.raw_notes}</p>}
                 </Section>
               )}
+
+              <Section icon={Newspaper} title="Reviews de Prensa Guardadas">
+                <PressReviewsSection analysisId={a.id} />
+              </Section>
             </div>
 
             <div className="space-y-5">
