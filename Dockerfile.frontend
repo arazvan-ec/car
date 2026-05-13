@@ -35,6 +35,7 @@ RUN npm install -g pnpm@10.4.1
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-lock.yaml* ./
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/patches ./patches
 
 # Instalar solo dependencias de producción (express, etc.)
 RUN pnpm install --prod --no-frozen-lockfile
