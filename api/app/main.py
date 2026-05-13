@@ -5,24 +5,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.router import api_router
-from app.db.session import engine
-from app.db import entities  # noqa: F401 — registrar modelos en Base
-from app.db.session import Base
+from app.db import entities  # noqa: F401 — registrar modelos
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Crea las tablas en PostgreSQL al arrancar la app.
-    Usando lifespan en lugar de import-time para que Railway
-    haya inyectado DATABASE_URL antes de intentar conectar.
+    El esquema de la base de datos es gestionado por Alembic.
+    Las migraciones se ejecutan en el CMD del Dockerfile antes de arrancar la API.
     """
-    Base.metadata.create_all(bind=engine)
     yield
-    # (aquí iría el teardown si fuera necesario)
 
 
-# Servidor MCP — importar después del lifespan para evitar create_all prematuro
+# Servidor MCP
 from mcp_server import get_mcp_app  # noqa: E402
 
 app = FastAPI(
@@ -42,10 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# REST API
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-# MCP Server — Manus lo conecta apuntando a: https://<dominio>/mcp
 app.mount("/mcp", get_mcp_app())
 
 
