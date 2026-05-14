@@ -4,7 +4,7 @@
  */
 import { useApiData, type PipelineRunSummary } from "@/hooks/useApi";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { Car, GitCompare, TrendingUp, Workflow } from "lucide-react";
+import { Car, GitCompare, TrendingUp, Workflow, Zap, Disc, Fuel, Tag } from "lucide-react";
 import { Link } from "wouter";
 import Layout from "@/components/Layout";
 import {
@@ -131,34 +131,55 @@ export default function Home() {
         : (
           <ul className="divide-y divide-border">
             {recent.map(r => {
-              const s = r.subject_data as Record<string, string>;
-              const title = r.pipeline_type === "vehicle_comparison"
-                ? "Comparativa"
+              const s = r.subject_data as Record<string, unknown>;
+              const isCmp = r.pipeline_type === "vehicle_comparison";
+              const title = isCmp
+                ? `Comparativa · ${((s.vehicles as unknown[] | undefined)?.length ?? 0)} coches`
                 : [s.brand, s.model, s.year, s.trim].filter(Boolean).join(" ") || r.subject_type;
-              const href = r.pipeline_type === "vehicle_comparison"
-                ? `/comparisons/${r.id}`
-                : `/analyses/${r.id}`;
+              const href = isCmp ? `/comparisons/${r.id}` : `/analyses/${r.id}`;
+              const cv = typeof s.horsepower === "number" ? s.horsepower : undefined;
+              const wheels = typeof s.wheel_size_inches === "number" ? s.wheel_size_inches : undefined;
+              const fuel = typeof s.fuel_type === "string" ? s.fuel_type : undefined;
+              const price = typeof s.estimated_street_price_eur === "number" ? s.estimated_street_price_eur :
+                            typeof s.list_price_eur === "number" ? s.list_price_eur : undefined;
+              const progress = r.steps_total ? (r.steps_completed / r.steps_total) * 100 : 0;
               return (
                 <li key={r.id}>
                   <Link href={href}>
                     <div className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 transition-colors cursor-pointer gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {r.pipeline_type === "vehicle_comparison"
-                          ? <GitCompare className="w-4 h-4 text-primary shrink-0" />
-                          : <Car className="w-4 h-4 text-primary shrink-0" />}
-                        <div className="min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          {isCmp ? <GitCompare className="w-4 h-4 text-primary" /> : <Car className="w-4 h-4 text-primary" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{title}</p>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {r.pipeline_type} · {r.steps_completed}/{r.steps_total} pasos
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {!isCmp && cv !== undefined && <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><Zap className="w-3 h-3" />{cv} CV</span>}
+                            {!isCmp && wheels !== undefined && <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><Disc className="w-3 h-3" />{wheels}"</span>}
+                            {!isCmp && fuel && <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"><Fuel className="w-3 h-3" />{fuel}</span>}
+                            {!isCmp && price !== undefined && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                <Tag className="w-3 h-3" />
+                                {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(price)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded border shrink-0 ${
-                        r.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
-                        r.status === "stale" ? "bg-orange-50 text-orange-700 border-orange-200" :
-                        r.status === "failed" ? "bg-red-50 text-red-700 border-red-200" :
-                        "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}>{r.status}</span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right hidden sm:block">
+                          <div className="w-16 h-1 rounded-full bg-border overflow-hidden">
+                            <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-mono mt-1">{r.steps_completed}/{r.steps_total}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded border ${
+                          r.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
+                          r.status === "stale" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                          r.status === "failed" ? "bg-red-50 text-red-700 border-red-200" :
+                          "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}>{r.status}</span>
+                      </div>
                     </div>
                   </Link>
                 </li>
