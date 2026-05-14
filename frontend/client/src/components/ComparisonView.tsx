@@ -145,9 +145,14 @@ export default function ComparisonView({ run }: { run: PipelineRunLike }) {
 
   const { runs: analyses, loading, error } = usePipelineRuns(ids);
 
-  const winnerId = str(run.decision?.winner_analysis_run_id);
-  const axisWinners = (run.decision?.axis_winners ?? {}) as Record<string, string>;
-  const ranking = (run.decision?.ranking ?? []) as Array<{ analysis_run_id: string; score?: number; completeness_score?: number }>;
+  // Fallback: si `run.decision` no está seteado, leer del paso `final_decision`.
+  const finalStepResult =
+    run.steps.find(s => s.step_type === "final_decision")?.structured_result ?? null;
+  const decision = (run.decision ?? finalStepResult ?? {}) as Record<string, unknown>;
+  const reasoning = str(decision.reasoning);
+  const winnerId = str(decision.winner_analysis_run_id);
+  const axisWinners = (decision.axis_winners ?? {}) as Record<string, string>;
+  const ranking = (decision.ranking ?? []) as Array<{ analysis_run_id: string; score?: number; completeness_score?: number }>;
 
   // ── Caso: comparativa sin referencias a análisis ──
   if (!ids.length) {
@@ -271,10 +276,10 @@ export default function ComparisonView({ run }: { run: PipelineRunLike }) {
         </div>
       )}
 
-      {str(run.decision?.reasoning) && (
+      {reasoning && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-6">
           <p className="text-xs uppercase tracking-wider text-primary font-medium mb-1.5">Razonamiento</p>
-          <p className="text-sm text-foreground italic">{str(run.decision?.reasoning)}</p>
+          <p className="text-sm text-foreground italic">{reasoning}</p>
         </div>
       )}
     </>

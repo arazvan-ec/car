@@ -248,9 +248,35 @@ Una comparativa **NO** sustituye al análisis: lo **reutiliza**. Cada coche que 
 - Las fuentes quedan versionadas en su análisis (reutilizables).
 - La comparativa pasa a ser una **agregación**, no una re-ejecución.
 
-### 5.1 Pre-requisitos antes de comparar
+### 5.1 Descubrimiento autónomo de competidores
 
-Para cada vehículo `V` de la lista a comparar:
+Cuando se pide comparar un vehículo `B` (base) y **no** se especifica una lista cerrada de competidores, el skill **debe descubrirlos por sí mismo y sin pedir confirmación al usuario**. Aplicar el siguiente algoritmo:
+
+1. **Definir el rango de competencia** a partir de `B`:
+   - **Segmento / carrocería:** mismo segmento (B, C, D, E…) y misma carrocería (hatchback, SUV, sedán, familiar, hot hatch, coupé…).
+   - **Banda de potencia:** rango `[0.7·CV_B, 1.3·CV_B]` (±30 %).
+   - **Banda de precio:** rango `[0.7·precio_calle_B, 1.3·precio_calle_B]` (±30 %).
+   - **Tipo de propulsión compatible:** combustible coherente (deportivos térmicos con deportivos térmicos; PHEV/FHEV con PHEV/FHEV cuando proceda).
+2. **Generar una shortlist mínima de 4 competidores** (preferible 5–7) escogiendo los modelos a la venta en España que solapen en al menos 3 de los 4 ejes anteriores. Incluir siempre el referente histórico del segmento aunque caiga en el borde del rango.
+3. **Para cada competidor descubierto**, aplicar el principio `max_power`: tomar la variante más potente del modelo que siga dentro del segmento (es decir, no saltar de un hot hatch a una berlina premium).
+4. **Registrar la decisión** en `subject_data.discovery` del `vehicle_comparison`:
+   ```json
+   "discovery": {
+     "auto_discovered": true,
+     "base_vehicle": { "brand": "Ford", "model": "Focus", "trim": "ST", "horsepower": 280 },
+     "ranges": { "cv": [196, 364], "price_eur": [29400, 54600] },
+     "rejected": [
+       { "brand": "Honda", "model": "Civic Type R", "reason": "precio fuera de banda superior" }
+     ]
+   }
+   ```
+5. **No interrumpir** el flujo: si el usuario aporta una lista parcial, **completarla** con el descubrimiento (no sustituirla) hasta llegar a la shortlist mínima.
+
+> Regla estricta: el skill nunca pregunta "¿con qué coches lo comparo?". Si no se le da una lista, la construye él.
+
+### 5.2 Pre-requisitos antes de comparar
+
+Para cada vehículo `V` de la lista final (aportada + descubierta):
 
 1. Buscar si ya existe un `PipelineRun` tipo `vehicle_analysis` para `V` (mismo brand/model/year/trim).
 2. Si **no existe**, ejecutar el pipeline de análisis completo (sección 3) antes de crear la comparativa.
@@ -259,7 +285,7 @@ Para cada vehículo `V` de la lista a comparar:
 
 > Regla estricta: **no se crea una comparativa si falta el análisis de alguno de los coches.**
 
-### 5.2 Crear el PipelineRun de comparativa
+### 5.3 Crear el PipelineRun de comparativa
 
 ```
 POST /api/v1/pipelines/runs/
@@ -286,7 +312,7 @@ POST /api/v1/pipelines/runs/
 - `subject_data.vehicles[].analysis_run_id` es **obligatorio** y permite al frontal cargar el análisis completo de cada coche como vista independiente.
 - `comparison_axis` lista los ejes en los que se va a posicionar cada coche.
 
-### 5.3 Pasos del pipeline de comparativa
+### 5.4 Pasos del pipeline de comparativa
 
 Los pasos del `vehicle_comparison` **no vuelven a fetchear** datos. Cada paso lee los `structured_result` de los análisis referenciados y produce un resultado agregado:
 
@@ -301,7 +327,7 @@ Los pasos del `vehicle_comparison` **no vuelven a fetchear** datos. Cada paso le
 | `competitive_analysis` | Posicionamiento relativo entre los coches comparados | todos los anteriores |
 | `final_decision` | Veredicto final de la comparativa | todos |
 
-### 5.4 Schema de `final_decision` para comparativa
+### 5.5 Schema de `final_decision` para comparativa
 
 ```json
 {
@@ -323,7 +349,7 @@ Los pasos del `vehicle_comparison` **no vuelven a fetchear** datos. Cada paso le
 }
 ```
 
-### 5.5 Oferta post-análisis
+### 5.6 Oferta post-análisis
 
 Al cerrar un `vehicle_analysis`, preguntar siempre:
 
