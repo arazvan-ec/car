@@ -342,12 +342,6 @@ final_decision ◀───────────── todos los anteriores
   <h2>7 · Known issues &amp; tech debt</h2>
 
   <div class="card" style="margin-bottom:12px;">
-    <h4><span class="pill sev-high">HIGH</span> ISSUE-1 · Directorio <code>/app/</code> legacy duplicado</h4>
-    <p style="font-size:12px; margin:6px 0;">En la raíz del repo existe <code>/app/</code> con copia obsoleta del backend (entities.py, translators.py, models.py, endpoints analyses/comparisons/stats). El <code>Dockerfile</code> usa <code>WORKDIR /app</code> y <code>CMD uvicorn app.main:app</code> — con <code>COPY . .</code>, Python resuelve <code>app.main</code> a <code>/app/app/main.py</code> que es la copia legacy.</p>
-    <p style="font-size:12px; margin:6px 0;"><strong>Acción</strong>: borrar <code>/app/</code> y confirmar que el deploy de la API usa <code>api/app/</code> (cambiar Dockerfile WORKDIR a <code>/app/api</code> o reorganizar paths). Probablemente Railway tenga configurado el rootDirectory en la API service.</p>
-  </div>
-
-  <div class="card" style="margin-bottom:12px;">
     <h4><span class="pill sev-high">HIGH</span> ISSUE-2 · CORS abierto con credenciales</h4>
     <p style="font-size:12px; margin:6px 0;"><code>api/app/main.py</code>: <code>allow_origins=["*"]</code> + <code>allow_credentials=True</code>. Restringir a <code>https://front-production-3a3e.up.railway.app</code> y dominios de desarrollo.</p>
   </div>
@@ -368,11 +362,6 @@ final_decision ◀───────────── todos los anteriores
   </div>
 
   <div class="card" style="margin-bottom:12px;">
-    <h4><span class="pill sev-low">LOW</span> ISSUE-6 · Zip del skill versionado</h4>
-    <p style="font-size:12px; margin:6px 0;"><code>car-configurator-preferences (1).zip</code> está en la raíz. El contenido descomprimido vive en <code>skills/</code>. Borrar el zip en un commit aparte.</p>
-  </div>
-
-  <div class="card" style="margin-bottom:12px;">
     <h4><span class="pill sev-low">LOW</span> ISSUE-7 · Sin tests automatizados</h4>
     <p style="font-size:12px; margin:6px 0;">No hay carpeta <code>tests/</code> ni en backend ni en frontend. Cualquier feature nueva debería incluir pytest (API) y/o Vitest (frontend).</p>
   </div>
@@ -385,7 +374,7 @@ final_decision ◀───────────── todos los anteriores
   </div>
   <div class="ascii">
 Repo layout
-├── api/                      ← Backend canónico
+├── api/                      ← Backend (root_directory en Railway)
 │   ├── app/
 │   │   ├── api/v1/           ← Router + endpoints
 │   │   ├── core/             ← Config + security
@@ -394,8 +383,10 @@ Repo layout
 │   │   └── repositories/     ← Persistencia (pipeline_repository.py)
 │   ├── migrations/           ← Alembic
 │   ├── mcp_server.py         ← MCP tools
-│   └── scripts/              ← Backup legacy, utilidades
-├── app/                      ← ⚠️ LEGACY DUPLICADO — borrar
+│   ├── scripts/              ← Backup legacy, utilidades
+│   ├── Dockerfile            ← Build de la API
+│   ├── railway.toml          ← Config Railway (API)
+│   └── requirements.txt      ← Deps Python
 ├── frontend/
 │   ├── client/src/
 │   │   ├── components/       ← Layout, ui-custom, ui/ (shadcn)
@@ -407,11 +398,9 @@ Repo layout
 ├── docs/architecture/
 │   ├── architecture.html     ← Este fichero (para humanos)
 │   └── architecture.json     ← Para el siguiente agente
-├── Dockerfile                ← Build API
-├── Dockerfile.frontend       ← Build frontend
-├── Procfile                  ← Comando uvicorn
-├── railway.toml              ← Config Railway
-└── requirements.txt          ← Deps Python
+├── Dockerfile.frontend       ← Build del frontend
+├── railway.toml              ← Config Railway (frontend)
+└── README.md
   </div>
 </section>
 
