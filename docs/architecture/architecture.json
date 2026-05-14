@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/arazvan-ec/car/blob/main/docs/architecture/architecture.json",
+  "name": "car-analytics",
+  "description": "API REST + frontend para análisis de vehículos basados en pipelines de enriquecimiento de datos. Cada análisis es un PipelineRun con pasos atómicos (technical_specs, real_consumption, press_review, ncap, owner_opinions, market_price, competitive_analysis, final_decision). Cada paso guarda sus fuentes externas con caché versionada.",
+  "version": "1.1.0",
+  "generated_at": "2026-05-14",
+  "branch_state": {
+    "default": "main",
+    "active_pr": 6,
+    "active_branch": "claude/analyze-and-improve-repo-36N2y",
+    "post_pr_state": "El PR #6 unifica el modelo: borra VehicleAnalysis/Comparison/PressReview en favor de PipelineRun. Esta arquitectura describe el estado post-merge."
+  },
+  "services": {
+    "api": {
+      "kind": "fastapi",
+      "language": "python-3.12",
+      "framework": "FastAPI 0.115 + SQLAlchemy 2 + Alembic + Pydantic v2",
+      "entry_point": "api/app/main.py:app",
+      "exposes": [
+        { "type": "rest", "prefix": "/api/v1" },
+        { "type": "mcp", "mount": "/mcp" },
+        { "type": "health", "path": "/health" },
+        { "type": "docs", "path": "/docs" }
+      ],
+      "auth": {
+        "scheme": "API key",
+        "header": "X-API-Key",
+        "code": "api/app/core/security.py"
+      },
+      "config": {
+        "file": "api/app/core/config.py",
+        "env_vars": ["DATABASE_URL", "API_KEY", "PROJECT_NAME"],
+        "warnings": ["API_KEY tiene default 'change-me-in-production' — la API queda abierta si la env var no se inyecta."]
+      },
+      "modules": [
+        { "path": "api/app/main.py", "role": "FastAPI app, monta routers y MCP", "imports": ["api/app/api/v1/router.py", "api/app/core/config.py", "mcp_server.py"] },
+        { "path": "api/app/api/v1/router.py", "role": "Agregador de routers", "imports": ["api/app/api/v1/endpoints/pipelines.py"] },
+        { "path": "api/app/api/v1/endpoints/pipelines.py", "role": "Endpoints REST del patrón Pipeline" },
+        { "path": "api/app/core/config.py", "role": "Settings con pydantic-settings" },
+        { "path": "api/app/core/security.py", "role": "Dependencia FastAPI que valida X-API-Key" },
+        { "path": "api/app/db/session.py", "role": "Engine SQLAlchemy y session factory" },
+        { "path": "api/app/db/pipeline_entities.py", "role": "ORM tables (pipeline_runs, pipeline_steps, data_sources, cache_entries)" },
+        { "path": "api/app/domain/pipeline.py", "role": "Dataclasses puras, enums RunStatus/StepStatus, VEHICLE_STEP_TYPES, STEP_DEPENDENCIES" },
+        { "path": "api/app/repositories/pipeline_repository.py", "role": "Persistencia: create_run, update_step, rerun_step, add_source_with_cache, get_cache_history" }
+      ],
+      "endpoints": [
+        { "method": "POST",  "path": "/api/v1/pipelines/runs/", "summary": "Crear pipeline run", "auth": true },
+        { "method": "GET",   "path": "/api/v1/pipelines/runs/", "summary": "Listar runs", "query": ["pipeline_type", "subject_type", "status_filter", "skip", "limit"], "auth": true },
+        { "method": "GET",   "path": "/api/v1/pipelines/runs/{run_id}", "summary": "Detalle run + steps + sources", "auth": true },
+        { "method": "POST",  "path": "/api/v1/pipelines/runs/{run_id}/rerun", "summary": "Marca todos los steps como stale", "auth": true },
+        { "method": "PATCH", "path": "/api/v1/pipelines/runs/{run_id}/steps/{step_type}", "summary": "Actualiza status/structured_result/error de un step", "auth": true },
+        { "method": "POST",  "path": "/api/v1/pipelines/runs/{run_id}/steps/{step_type}/rerun", "summary": "Marca un step como stale y propaga a dependientes", "auth": true },
+        { "method": "POST",  "path": "/api/v1/pipelines/runs/{run_id}/steps/{step_type}/sources/", "summary": "Añade DataSource con CacheEntry (versionado)", "auth": true },
+        { "method": "GET",   "path": "/api/v1/pipelines/runs/{run_id}/steps/{step_type}/sources/{source_name}/history", "summary": "Historial de versiones de caché", "auth": true },
+        { "method": "GET",   "path": "/health", "summary": "Health check", "auth": false },
+        { "method": "GET",   "path": "/docs", "summary": "Swagger UI", "auth": false }
+      ]
+    },
+    "mcp": {
+      "kind": "model_context_protocol_server",
+      "file": "api/mcp_server.py",
+      "duplicate_at_root": "mcp_server.py",
+      "mount_in_api": "/mcp",
+      "purpose": "Expone los mismos endpoints como tools MCP para agentes IA",
+      "tools": ["create_analysis", "list_analyses", "get_analysis", "delete_analysis", "create_comparison", "list_comparisons", "get_stats"]
+    },
+    "frontend": {
+      "kind": "spa",
+      "language": "typescript",
+      "framework": "Vite + React 18 + Tailwind + shadcn/ui + wouter (router) + recharts",
+      "entry_point": "frontend/client/src/main.tsx",
+      "static_server": "frontend/server/index.ts (Express, sirve dist/public)",
+      "config": {
+        "env_vars": ["VITE_API_URL", "VITE_API_KEY"],
+        "warning": "VITE_API_KEY se inyecta en build time y queda visible en el bundle público — no es secreto real."
+      },
+      "modules": [
+        { "path": "frontend/client/src/App.tsx", "role": "Router con rutas /, /analyses, /comparisons, /pipelines (+ :id)" },
+        { "path": "frontend/client/src/main.tsx", "role": "Bootstrap ReactDOM" },
+        { "path": "frontend/client/src/hooks/useApi.ts", "role": "Fetch wrapper con X-API-Key + tipos (PipelineRunSummary)" },
+        { "path": "frontend/client/src/hooks/useMobile.tsx", "role": "Hook detección móvil (breakpoint 768)" },
+        { "path": "frontend/client/src/components/Layout.tsx", "role": "Sidebar + topbar móvil + nav (Dashboard/Análisis/Comparativas/Pipelines)" },
+        { "path": "frontend/client/src/components/ui-custom.tsx", "role": "Helpers UI dominio: PageHeader, StatCard, EmptyState, ErrorState, SkeletonCard" },
+        { "path": "frontend/client/src/components/ui/", "role": "Componentes shadcn/ui (radix) sin modificar — carousel, dialog, etc." },
+        { "path": "frontend/client/src/pages/Home.tsx", "role": "Dashboard con stats calculados en cliente desde pipelines" },
+        { "path": "frontend/client/src/pages/Pipelines.tsx", "role": "Lista filtrable; exporta wrappers Analyses() y Comparisons()" },
+        { "path": "frontend/client/src/pages/PipelineDetail.tsx", "role": "Vista detalle del pipeline. Soporta /pipelines/:id, /analyses/:id, /comparisons/:id" },
+        { "path": "frontend/client/src/pages/NotFound.tsx", "role": "404" }
+      ],
+      "routes": [
+        { "path": "/",                 "component": "Home" },
+        { "path": "/analyses",         "component": "Pipelines.Analyses",    "filter": "pipeline_type=vehicle_analysis" },
+        { "path": "/analyses/:id",     "component": "PipelineDetail" },
+        { "path": "/comparisons",      "component": "Pipelines.Comparisons", "filter": "pipeline_type=vehicle_comparison" },
+        { "path": "/comparisons/:id",  "component": "PipelineDetail" },
+        { "path": "/pipelines",        "component": "Pipelines (all)" },
+        { "path": "/pipelines/:id",    "component": "PipelineDetail" }
+      ]
+    }
+  },
+  "data_model": {
+    "current_tables": {
+      "pipeline_runs": {
+        "purpose": "Cada análisis o comparativa de vehículo",
+        "key_columns": ["id (UUID)", "pipeline_type", "subject_type", "subject_data (JSON)", "status", "skill_version", "notes", "created_at", "updated_at"],
+        "values": {
+          "pipeline_type": ["vehicle_analysis", "vehicle_comparison"],
+          "status": ["pending", "running", "completed", "failed", "stale"]
+        }
+      },
+      "pipeline_steps": {
+        "purpose": "Pasos atómicos de un run",
+        "key_columns": ["id", "run_id (FK pipeline_runs)", "step_type", "status", "structured_result (JSON)", "error_message", "depends_on (JSON list)", "started_at", "completed_at"],
+        "values": {
+          "step_type_vehicle_analysis": ["technical_specs", "real_consumption", "press_review", "ncap", "owner_opinions", "market_price", "competitive_analysis", "final_decision"],
+          "status": ["pending", "running", "completed", "failed", "stale"]
+        }
+      },
+      "data_sources": {
+        "purpose": "Fuente externa consultada por un step (km77, euroncap, CarWow, …)",
+        "key_columns": ["id", "step_id (FK pipeline_steps)", "source_name", "source_url", "fetched_at"]
+      },
+      "cache_entries": {
+        "purpose": "Versión inmutable del contenido obtenido de una fuente. No se sobrescribe; cada update crea una versión nueva con is_current=true y marca la anterior false.",
+        "key_columns": ["id", "data_source_id (FK)", "version (int autoincrement por source)", "raw_content (Text)", "structured_data (JSON)", "is_current (bool)", "notes", "created_at"]
+      }
+    },
+    "removed_in_migration_c1a7f0d4e9b2": ["vehicle_analyses", "comparisons", "press_reviews"],
+    "step_dependencies": {
+      "technical_specs":      [],
+      "real_consumption":     ["technical_specs"],
+      "press_review":         [],
+      "ncap":                 [],
+      "owner_opinions":       [],
+      "market_price":         ["technical_specs"],
+      "competitive_analysis": ["technical_specs", "market_price"],
+      "final_decision":       ["technical_specs", "real_consumption", "press_review", "ncap", "owner_opinions", "market_price", "competitive_analysis"]
+    }
+  },
+  "skill": {
+    "name": "car-configurator-preferences",
+    "version": "v2.0",
+    "path": "skills/car-configurator-preferences/SKILL.md",
+    "purpose": "Playbook que define principios, step_types y schemas JSON de cada structured_result.",
+    "principles": [
+      "Prestaciones: priorizar CV, par, AWD.",
+      "Seguridad activa: faros LED matriciales, llantas 19\"/20\", ADAS de serie.",
+      "Estética premium: acabado tope (ST-Line X, Active X, R-Line, GR Sport).",
+      "Híbridos: sin carga diaria → FHEV AWD. Con carga → PHEV más potente."
+    ],
+    "warnings": ["SKILL.md:208 filtra la API key en texto plano. Rotar antes de divulgar."]
+  },
+  "deployment": {
+    "platform": "railway",
+    "topology": "Dos servicios separados: API (Python) + frontend (Express estático que sirve la SPA)",
+    "files": {
+      "api_dockerfile": "Dockerfile",
+      "frontend_dockerfile": "Dockerfile.frontend",
+      "railway_config": "railway.toml (apunta a Dockerfile.frontend — confirmar que API usa otra ruta de build)",
+      "procfile": "Procfile (uvicorn app.main:app)"
+    },
+    "urls": {
+      "api_production": "https://carr-production.up.railway.app",
+      "frontend_production": "https://front-production-3a3e.up.railway.app"
+    },
+    "env_required": {
+      "api": ["DATABASE_URL", "API_KEY"],
+      "frontend": ["VITE_API_URL", "VITE_API_KEY"]
+    },
+    "migrations": "Alembic (api/migrations/). El upgrade head debe ejecutarse en el release/start del deploy de la API. La migración c1a7f0d4e9b2_drop_legacy_entities elimina las tablas legacy."
+  },
+  "known_issues": [
+    {
+      "id": "ISSUE-1",
+      "severity": "high",
+      "title": "Directorio /app/ legacy duplicado en la raíz",
+      "details": "/app/ (raíz) contiene una copia obsoleta del backend que aún tiene entities.py, translators.py, models.py, endpoints analyses/comparisons/stats. El Dockerfile usa WORKDIR /app y CMD 'uvicorn app.main:app' — con COPY . . el path /app/app/main.py podría resolverse a la copia legacy, no a api/app/. Debe borrarse /app/ y verificar que el deploy de la API apunta explícitamente a api/app/.",
+      "files": ["app/", "Dockerfile", "Procfile"]
+    },
+    {
+      "id": "ISSUE-2",
+      "severity": "high",
+      "title": "CORS permite cualquier origen con credenciales",
+      "details": "api/app/main.py: allow_origins=['*'] + allow_credentials=True. Vulnerable a CSRF; restringir a dominio del frontend de Railway.",
+      "files": ["api/app/main.py"]
+    },
+    {
+      "id": "ISSUE-3",
+      "severity": "high",
+      "title": "API key con default inseguro",
+      "details": "api/app/core/config.py define API_KEY='change-me-in-production'. Si la env var falta en Railway, la API queda abierta sin auth.",
+      "files": ["api/app/core/config.py"]
+    },
+    {
+      "id": "ISSUE-4",
+      "severity": "medium",
+      "title": "API key del frontend expuesta en bundle",
+      "details": "VITE_API_KEY se inyecta en build y es legible en el JS público. No es un secreto real; cualquiera con DevTools la extrae.",
+      "files": ["frontend/client/src/hooks/useApi.ts", "Dockerfile.frontend"]
+    },
+    {
+      "id": "ISSUE-5",
+      "severity": "medium",
+      "title": "Sin rate limiting ni input validation estricta",
+      "details": "Endpoints sin throttle. AddSourceRequest/UpdateStepRequest aceptan strings y dicts arbitrarios sin max_length ni shape validation.",
+      "files": ["api/app/api/v1/endpoints/pipelines.py"]
+    },
+    {
+      "id": "ISSUE-6",
+      "severity": "low",
+      "title": "Zip de skill versionado en repo",
+      "details": "'car-configurator-preferences (1).zip' está en la raíz commit; el contenido descomprimido está en skills/. El zip puede borrarse.",
+      "files": ["car-configurator-preferences (1).zip"]
+    },
+    {
+      "id": "ISSUE-7",
+      "severity": "low",
+      "title": "Sin tests automatizados",
+      "details": "No existe carpeta tests/. Cualquier feature nueva debe acompañarse de pytest + (opcionalmente) Playwright/Vitest para frontend."
+    }
+  ],
+  "guide_for_next_agent": {
+    "when_adding_a_new_step_type": [
+      "1. Editar api/app/domain/pipeline.py: añadir a VEHICLE_STEP_TYPES (o crear nueva lista por pipeline_type) y a STEP_DEPENDENCIES.",
+      "2. Si requiere cambios de esquema, generar migración Alembic con: alembic -c api/alembic.ini revision --autogenerate -m 'descripción'.",
+      "3. Actualizar SKILL.md sección 4 con el JSON schema esperado en structured_result.",
+      "4. Frontend: si quiere visualización custom, extender STEP_LABELS en PipelineDetail.tsx."
+    ],
+    "when_adding_a_new_endpoint": [
+      "1. Crear handler en api/app/api/v1/endpoints/pipelines.py (o módulo nuevo si dominio independiente).",
+      "2. Registrar en api/app/api/v1/router.py con prefix correcto.",
+      "3. Proteger con Security(require_api_key) salvo health checks.",
+      "4. Si modifica datos, asegurar transacción en repository y manejar IntegrityError con HTTP 409."
+    ],
+    "when_adding_a_new_frontend_page": [
+      "1. Crear .tsx en frontend/client/src/pages/.",
+      "2. Registrar ruta en frontend/client/src/App.tsx.",
+      "3. Si requiere navegación, añadir entry en NAV de frontend/client/src/components/Layout.tsx.",
+      "4. Consumir API con useApiData del hook unificado."
+    ],
+    "when_changing_data_model": [
+      "1. NUNCA borrar columnas sin migración Alembic.",
+      "2. Backfill antes de NOT NULL; usar batched UPDATE si la tabla es grande.",
+      "3. Las tablas cache_entries pueden crecer mucho: no añadir índices sin justificar.",
+      "4. Tras migrate, ejecutar api/scripts/export_legacy.py-style backup si la operación es destructiva."
+    ],
+    "anti_patterns_to_avoid": [
+      "Recrear VehicleAnalysis/Comparison tables — fueron deliberadamente eliminadas en c1a7f0d4e9b2.",
+      "Mezclar fetch real con conocimiento de modelo en mismo source sin marcarlo en notes.",
+      "Sobrescribir un CacheEntry — siempre crear nueva version vía add_source_with_cache."
+    ]
+  },
+  "useful_commands": {
+    "run_api_local": "uvicorn app.main:app --reload --app-dir api",
+    "run_frontend_local": "cd frontend && pnpm install && pnpm dev",
+    "apply_migrations": "alembic -c api/alembic.ini upgrade head",
+    "export_legacy_backup": "API_URL=https://carr-production.up.railway.app API_KEY=<key> python3 api/scripts/export_legacy.py",
+    "typecheck_frontend": "cd frontend && pnpm check"
+  }
+}

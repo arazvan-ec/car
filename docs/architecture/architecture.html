@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>car-analytics · Arquitectura</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel2: #243044;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --border: #334155;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; font-size: 14px; }
+  header { padding: 28px 32px 16px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  nav { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); padding: 10px 32px; }
+  nav a { color: var(--muted); text-decoration: none; margin-right: 18px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  nav a:hover { color: var(--accent); }
+  main { padding: 24px 32px 80px; max-width: 1200px; margin: 0 auto; }
+  section { margin-bottom: 40px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 13px; font-weight: 600; margin: 18px 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex: 1 1 280px; min-width: 0; }
+  .card h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--accent); }
+  .card .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); word-break: break-all; }
+  .card ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; }
+  .card li { margin-bottom: 3px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-family: var(--mono); border: 1px solid var(--border); margin-right: 4px; }
+  .pill.method-get    { color: #34d399; border-color: #065f46; background: #022c22; }
+  .pill.method-post   { color: #60a5fa; border-color: #1e3a8a; background: #0c1a4b; }
+  .pill.method-patch  { color: #fbbf24; border-color: #78350f; background: #2a1808; }
+  .pill.method-delete { color: #f87171; border-color: #7f1d1d; background: #2c0808; }
+  .pill.sev-high      { color: #fca5a5; border-color: #7f1d1d; background: #2c0808; }
+  .pill.sev-medium    { color: #fbbf24; border-color: #78350f; background: #2a1808; }
+  .pill.sev-low       { color: #93c5fd; border-color: #1e3a8a; background: #0c1a4b; }
+  pre { background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 12px; overflow-x: auto; font-family: var(--mono); font-size: 11px; line-height: 1.55; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--panel2); padding: 1px 4px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; }
+  td.mono { font-family: var(--mono); font-size: 11px; }
+  .endpoint-grid { display: grid; grid-template-columns: 80px 1fr; gap: 6px 12px; font-size: 12px; align-items: baseline; }
+  .endpoint-path { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+  .endpoint-desc { color: var(--muted); font-size: 11px; grid-column: 2; margin-bottom: 6px; }
+  .ascii { font-family: var(--mono); font-size: 11px; line-height: 1.4; white-space: pre; color: var(--muted); }
+  .warn { border-left: 3px solid var(--amber); padding-left: 12px; margin: 12px 0; color: var(--muted); font-size: 12px; background: rgba(245,158,11,0.05); padding: 10px 12px; border-radius: 0 6px 6px 0; }
+  .danger { border-left: 3px solid var(--red); background: rgba(239,68,68,0.05); padding: 10px 12px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 12px; }
+  .ok { border-left: 3px solid var(--green); background: rgba(34,197,94,0.05); padding: 10px 12px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 12px; }
+  a.link { color: var(--accent); text-decoration: none; }
+  a.link:hover { text-decoration: underline; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; font-size: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: var(--mono); font-size: 11px; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>car-analytics · Mapa de arquitectura</h1>
+  <p>Estado post-PR&nbsp;#6 · branch <code>claude/analyze-and-improve-repo-36N2y</code> · generado 2026-05-14</p>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#data-model">Data model</a>
+  <a href="#api">API</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#skill">Skill</a>
+  <a href="#deploy">Deploy</a>
+  <a href="#issues">Issues</a>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h2>1 · Overview</h2>
+  <p>App de análisis y comparativa de vehículos. Tras la unificación reciente, todo el dominio se modela como <strong>PipelineRun</strong>: cada análisis o comparativa es un run con pasos atómicos y fuentes versionadas. El frontend (React/Vite) consume la misma API REST que el servidor MCP, lo que permite tanto UI como agentes IA generar/leer análisis.</p>
+  <div class="ascii">
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      Railway · 2 servicios                                │
+│                                                                            │
+│   ┌──────────────────────────┐         ┌──────────────────────────────┐   │
+│   │  frontend-production     │         │  carr-production              │   │
+│   │  Node 22 + Express SPA   │  HTTPS  │  Python 3.12 + FastAPI        │   │
+│   │  Dockerfile.frontend     │ ──────▶ │  Dockerfile                   │   │
+│   │  /                       │  X-Api  │  /api/v1/pipelines/*          │   │
+│   │  Vite + React + wouter   │  -Key   │  /mcp/* (MCP server)          │   │
+│   └──────────────────────────┘         │  /docs                        │   │
+│                                         │  /health                      │   │
+│                                         └─────────┬────────────────────┘   │
+│                                                   │                        │
+│                                                   ▼                        │
+│                                          ┌───────────────────┐             │
+│                                          │   PostgreSQL       │             │
+│                                          │   pipeline_runs    │             │
+│                                          │   pipeline_steps   │             │
+│                                          │   data_sources     │             │
+│                                          │   cache_entries    │             │
+│                                          └───────────────────┘             │
+└──────────────────────────────────────────────────────────────────────────┘
+  </div>
+</section>
+
+<section id="data-model">
+  <h2>2 · Data model</h2>
+  <div class="ascii">
+PipelineRun (1) ──┬── (N) PipelineStep ──┬── (N) DataSource ──┬── (N) CacheEntry
+                  │                       │                    │
+                  │   step_type           │   source_name      │   version (autoinc)
+                  │   status              │   source_url       │   raw_content
+                  │   structured_result   │   fetched_at       │   structured_data
+                  │   depends_on []       │                    │   is_current
+                  │                       │                    │   notes
+                  │                       │                    │   created_at
+                  ▼                       ▼                    ▼
+  </div>
+
+  <h3>Tablas vivas</h3>
+  <table>
+    <thead><tr><th>Tabla</th><th>Propósito</th><th>Columnas clave</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">pipeline_runs</td><td>Cada análisis o comparativa</td><td class="mono">id · pipeline_type · subject_data (JSON) · status · skill_version</td></tr>
+      <tr><td class="mono">pipeline_steps</td><td>Pasos atómicos</td><td class="mono">id · run_id · step_type · status · structured_result · depends_on</td></tr>
+      <tr><td class="mono">data_sources</td><td>Fuente externa de un step</td><td class="mono">id · step_id · source_name · source_url · fetched_at</td></tr>
+      <tr><td class="mono">cache_entries</td><td>Versiones inmutables del contenido</td><td class="mono">id · data_source_id · version · raw_content · structured_data · is_current</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Eliminadas en migración <code>c1a7f0d4e9b2</code></h3>
+  <p style="color:var(--muted); font-size:12px;"><code>vehicle_analyses</code>, <code>comparisons</code>, <code>press_reviews</code> — backup JSON en <code>api/scripts/legacy_export_20260514/</code>.</p>
+
+  <h3>Step types y dependencias</h3>
+  <div class="ascii">
+technical_specs       ────────┐
+real_consumption     ──┐      │
+press_review                  │
+ncap                          │
+owner_opinions                │
+market_price        ──┐       │
+competitive_analysis ─┴───────┤
+final_decision ◀───────────── todos los anteriores
+
+(dependencias formales: STEP_DEPENDENCIES en api/app/domain/pipeline.py)
+  </div>
+</section>
+
+<section id="api">
+  <h2>3 · API — FastAPI</h2>
+  <dl class="kv">
+    <dt>Entry point</dt><dd>api/app/main.py · objeto <code>app</code></dd>
+    <dt>Auth</dt><dd>Header <code>X-API-Key</code>, validado en <code>api/app/core/security.py</code></dd>
+    <dt>Prefijo REST</dt><dd>/api/v1</dd>
+    <dt>MCP mount</dt><dd>/mcp (servido por <code>api/mcp_server.py</code>)</dd>
+  </dl>
+
+  <h3>Endpoints</h3>
+  <div class="endpoint-grid">
+    <span class="pill method-post">POST</span><span class="endpoint-path">/api/v1/pipelines/runs/</span>
+    <div class="endpoint-desc">Crear pipeline run (vehicle_analysis / vehicle_comparison). Devuelve detalle con steps inicializados según VEHICLE_STEP_TYPES o lista custom.</div>
+
+    <span class="pill method-get">GET</span><span class="endpoint-path">/api/v1/pipelines/runs/?pipeline_type=…&amp;status_filter=…</span>
+    <div class="endpoint-desc">Listar runs, filtrable por tipo/subject/estado.</div>
+
+    <span class="pill method-get">GET</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}</span>
+    <div class="endpoint-desc">Detalle: steps + data_sources con current_cache embebido.</div>
+
+    <span class="pill method-post">POST</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}/rerun</span>
+    <div class="endpoint-desc">Marca todos los pasos como stale (sin borrar sources).</div>
+
+    <span class="pill method-patch">PATCH</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}/steps/{step_type}</span>
+    <div class="endpoint-desc">Actualiza status / structured_result / error_message.</div>
+
+    <span class="pill method-post">POST</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}/steps/{step_type}/rerun</span>
+    <div class="endpoint-desc">Marca el step como stale; propaga stale a steps que dependen de él.</div>
+
+    <span class="pill method-post">POST</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}/steps/{step_type}/sources/</span>
+    <div class="endpoint-desc">Añadir DataSource con CacheEntry. Si source_name ya existía, crea nueva versión, marca anterior is_current=false.</div>
+
+    <span class="pill method-get">GET</span><span class="endpoint-path">/api/v1/pipelines/runs/{run_id}/steps/{step_type}/sources/{source_name}/history</span>
+    <div class="endpoint-desc">Historial completo de versiones de caché de una fuente.</div>
+
+    <span class="pill method-get">GET</span><span class="endpoint-path">/health</span>
+    <div class="endpoint-desc">Health check (sin auth).</div>
+
+    <span class="pill method-get">GET</span><span class="endpoint-path">/docs</span>
+    <div class="endpoint-desc">Swagger UI (sin auth).</div>
+  </div>
+
+  <h3>Módulos backend</h3>
+  <div class="row">
+    <div class="card">
+      <h4>api/app/main.py</h4>
+      <div class="meta">FastAPI app, monta router REST + servidor MCP en /mcp. CORS abierto a *.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/api/v1/router.py</h4>
+      <div class="meta">Solo expone <code>pipelines.router</code> bajo <code>/pipelines</code>.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/api/v1/endpoints/pipelines.py</h4>
+      <div class="meta">Schemas Pydantic + handlers REST. Único módulo de endpoints tras la unificación.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/core/config.py</h4>
+      <div class="meta">Settings (DATABASE_URL, API_KEY, PROJECT_NAME).</div>
+    </div>
+    <div class="card">
+      <h4>api/app/core/security.py</h4>
+      <div class="meta">Dependencia <code>require_api_key</code>.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/db/session.py</h4>
+      <div class="meta">Engine SQLAlchemy + <code>get_db</code>.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/db/pipeline_entities.py</h4>
+      <div class="meta">ORM: PipelineRunEntity, PipelineStepEntity, DataSourceEntity, CacheEntryEntity.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/domain/pipeline.py</h4>
+      <div class="meta">Dataclasses puras, enums, VEHICLE_STEP_TYPES, STEP_DEPENDENCIES.</div>
+    </div>
+    <div class="card">
+      <h4>api/app/repositories/pipeline_repository.py</h4>
+      <div class="meta">CRUD: create_run, list_runs, update_step, rerun, add_source_with_cache, get_cache_history.</div>
+    </div>
+    <div class="card">
+      <h4>api/mcp_server.py</h4>
+      <div class="meta">Servidor MCP montado en /mcp. Tools que envuelven los endpoints REST.</div>
+    </div>
+  </div>
+</section>
+
+<section id="frontend">
+  <h2>4 · Frontend — Vite + React</h2>
+  <dl class="kv">
+    <dt>Entry point</dt><dd>frontend/client/src/main.tsx → App.tsx</dd>
+    <dt>Router</dt><dd>wouter (declarativo, sin react-router)</dd>
+    <dt>Server estático</dt><dd>frontend/server/index.ts · Express sirve <code>dist/public</code></dd>
+    <dt>Estilo</dt><dd>Tailwind v4 + shadcn/ui (radix primitives)</dd>
+    <dt>Gráficos</dt><dd>recharts</dd>
+  </dl>
+
+  <h3>Rutas</h3>
+  <table>
+    <thead><tr><th>Ruta</th><th>Componente</th><th>Filtro</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">/</td><td>Home</td><td>—</td></tr>
+      <tr><td class="mono">/analyses</td><td>Pipelines.Analyses</td><td class="mono">pipeline_type=vehicle_analysis</td></tr>
+      <tr><td class="mono">/analyses/:id</td><td>PipelineDetail</td><td>—</td></tr>
+      <tr><td class="mono">/comparisons</td><td>Pipelines.Comparisons</td><td class="mono">pipeline_type=vehicle_comparison</td></tr>
+      <tr><td class="mono">/comparisons/:id</td><td>PipelineDetail</td><td>—</td></tr>
+      <tr><td class="mono">/pipelines</td><td>PipelinesPage</td><td>filter=all</td></tr>
+      <tr><td class="mono">/pipelines/:id</td><td>PipelineDetail</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Módulos frontend</h3>
+  <div class="grid-3">
+    <div class="card">
+      <h4>pages/Home.tsx</h4>
+      <div class="meta">Dashboard. Cuenta analyses/comparisons en cliente desde /pipelines/runs/, top brands y fuel_types con countBy + recharts.</div>
+    </div>
+    <div class="card">
+      <h4>pages/Pipelines.tsx</h4>
+      <div class="meta">Componente <code>PipelinesPage</code> + wrappers exportados <code>Analyses()</code> y <code>Comparisons()</code>. Filtra por <code>pipeline_type</code>.</div>
+    </div>
+    <div class="card">
+      <h4>pages/PipelineDetail.tsx</h4>
+      <div class="meta">Detalle. Soporta <code>/pipelines/:id</code>, <code>/analyses/:id</code>, <code>/comparisons/:id</code> con tres useRoute. Renderiza StepCard con structured_result en JSON formateado y data_sources expandibles.</div>
+    </div>
+    <div class="card">
+      <h4>hooks/useApi.ts</h4>
+      <div class="meta">Fetch wrapper. Inyecta <code>X-API-Key</code> desde <code>VITE_API_KEY</code>. Expone <code>useApiData&lt;T&gt;</code> con loading/error/reload.</div>
+    </div>
+    <div class="card">
+      <h4>components/Layout.tsx</h4>
+      <div class="meta">Sidebar dark + topbar móvil. NAV: Dashboard / Análisis / Comparativas / Todos los pipelines.</div>
+    </div>
+    <div class="card">
+      <h4>components/ui-custom.tsx</h4>
+      <div class="meta">Helpers de dominio: PageHeader, StatCard, EmptyState, ErrorState, SkeletonCard.</div>
+    </div>
+  </div>
+</section>
+
+<section id="skill">
+  <h2>5 · Skill: car-configurator-preferences</h2>
+  <dl class="kv">
+    <dt>Ubicación</dt><dd>skills/car-configurator-preferences/SKILL.md</dd>
+    <dt>Versión</dt><dd>v2.0</dd>
+  </dl>
+  <p>Playbook que define cómo orquestar un análisis contra la API: principios de configuración, los 8 step types, sus dependencias, y los schemas JSON exactos para <code>structured_result</code> de cada paso. Lo usa el agente IA al crear/actualizar pipelines.</p>
+  <div class="warn"><strong>Warning</strong>: <code>SKILL.md:208</code> filtra la API key (<code>mi-clave-secreta-car-analytics-2026</code>) en texto plano. Rotar la <code>API_KEY</code> en Railway y sustituir por placeholder antes de seguir.</div>
+</section>
+
+<section id="deploy">
+  <h2>6 · Deploy · Railway</h2>
+  <div class="row">
+    <div class="card">
+      <h4>API service</h4>
+      <div class="meta">Dockerfile (raíz). Python 3.12-slim. CMD: <code>uvicorn app.main:app</code>. Migraciones Alembic deben ejecutarse en release/start.</div>
+      <ul>
+        <li>URL prod: <code>carr-production.up.railway.app</code></li>
+        <li>Env: <code>DATABASE_URL</code>, <code>API_KEY</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Frontend service</h4>
+      <div class="meta">Dockerfile.frontend. Node 22-slim. pnpm build (vite + esbuild server). Express sirve estáticos en :3000.</div>
+      <ul>
+        <li>URL prod: <code>front-production-3a3e.up.railway.app</code></li>
+        <li>Env build-time: <code>VITE_API_URL</code>, <code>VITE_API_KEY</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Migraciones</h4>
+      <div class="meta">api/migrations/versions/</div>
+      <ul>
+        <li><code>14da06184cdc</code> initial schema</li>
+        <li><code>2a7893e4e9fd</code> add press_reviews</li>
+        <li><code>8a408ee49f03</code> add pipeline tables</li>
+        <li><code>c1a7f0d4e9b2</code> drop legacy entities ← pendiente de aplicar</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="issues">
+  <h2>7 · Known issues &amp; tech debt</h2>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-high">HIGH</span> ISSUE-1 · Directorio <code>/app/</code> legacy duplicado</h4>
+    <p style="font-size:12px; margin:6px 0;">En la raíz del repo existe <code>/app/</code> con copia obsoleta del backend (entities.py, translators.py, models.py, endpoints analyses/comparisons/stats). El <code>Dockerfile</code> usa <code>WORKDIR /app</code> y <code>CMD uvicorn app.main:app</code> — con <code>COPY . .</code>, Python resuelve <code>app.main</code> a <code>/app/app/main.py</code> que es la copia legacy.</p>
+    <p style="font-size:12px; margin:6px 0;"><strong>Acción</strong>: borrar <code>/app/</code> y confirmar que el deploy de la API usa <code>api/app/</code> (cambiar Dockerfile WORKDIR a <code>/app/api</code> o reorganizar paths). Probablemente Railway tenga configurado el rootDirectory en la API service.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-high">HIGH</span> ISSUE-2 · CORS abierto con credenciales</h4>
+    <p style="font-size:12px; margin:6px 0;"><code>api/app/main.py</code>: <code>allow_origins=["*"]</code> + <code>allow_credentials=True</code>. Restringir a <code>https://front-production-3a3e.up.railway.app</code> y dominios de desarrollo.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-high">HIGH</span> ISSUE-3 · API key con default inseguro</h4>
+    <p style="font-size:12px; margin:6px 0;"><code>api/app/core/config.py</code> define <code>API_KEY="change-me-in-production"</code>. Si la env var falta en Railway, la API queda abierta. Cambiar a Field sin default y dejar que Pydantic falle al arrancar.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-medium">MED</span> ISSUE-4 · API key expuesta en bundle frontend</h4>
+    <p style="font-size:12px; margin:6px 0;"><code>VITE_API_KEY</code> se inyecta build-time y queda visible en el JS público. Migrar a auth con tokens de sesión emitidos por la API, o aceptar que la key del frontend es realmente un identificador, no un secreto.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-medium">MED</span> ISSUE-5 · Sin rate limiting ni input validation estricta</h4>
+    <p style="font-size:12px; margin:6px 0;"><code>AddSourceRequest</code> acepta <code>raw_content</code> sin <code>max_length</code>. <code>UpdateStepRequest.structured_result</code> es <code>Optional[dict]</code> arbitrario. Añadir constraints Pydantic y, opcionalmente, slowapi para throttling por API key.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-low">LOW</span> ISSUE-6 · Zip del skill versionado</h4>
+    <p style="font-size:12px; margin:6px 0;"><code>car-configurator-preferences (1).zip</code> está en la raíz. El contenido descomprimido vive en <code>skills/</code>. Borrar el zip en un commit aparte.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <h4><span class="pill sev-low">LOW</span> ISSUE-7 · Sin tests automatizados</h4>
+    <p style="font-size:12px; margin:6px 0;">No hay carpeta <code>tests/</code> ni en backend ni en frontend. Cualquier feature nueva debería incluir pytest (API) y/o Vitest (frontend).</p>
+  </div>
+</section>
+
+<section>
+  <h2>8 · Cómo se navega este mapa</h2>
+  <div class="ok">
+    <strong>Para el siguiente agente:</strong> el fichero machine-readable está en <code>docs/architecture/architecture.json</code>. Contiene <code>guide_for_next_agent</code> con pasos concretos para añadir step types, endpoints, páginas frontend y migraciones, además de <code>anti_patterns_to_avoid</code>.
+  </div>
+  <div class="ascii">
+Repo layout
+├── api/                      ← Backend canónico
+│   ├── app/
+│   │   ├── api/v1/           ← Router + endpoints
+│   │   ├── core/             ← Config + security
+│   │   ├── db/               ← ORM (pipeline_entities) + session
+│   │   ├── domain/           ← Dataclasses puras (pipeline.py)
+│   │   └── repositories/     ← Persistencia (pipeline_repository.py)
+│   ├── migrations/           ← Alembic
+│   ├── mcp_server.py         ← MCP tools
+│   └── scripts/              ← Backup legacy, utilidades
+├── app/                      ← ⚠️ LEGACY DUPLICADO — borrar
+├── frontend/
+│   ├── client/src/
+│   │   ├── components/       ← Layout, ui-custom, ui/ (shadcn)
+│   │   ├── hooks/            ← useApi, useMobile
+│   │   └── pages/            ← Home, Pipelines, PipelineDetail, NotFound
+│   └── server/index.ts       ← Express estático
+├── skills/car-configurator-preferences/
+│   └── SKILL.md              ← Playbook del agente
+├── docs/architecture/
+│   ├── architecture.html     ← Este fichero (para humanos)
+│   └── architecture.json     ← Para el siguiente agente
+├── Dockerfile                ← Build API
+├── Dockerfile.frontend       ← Build frontend
+├── Procfile                  ← Comando uvicorn
+├── railway.toml              ← Config Railway
+└── requirements.txt          ← Deps Python
+  </div>
+</section>
+
+</main>
+</body>
+</html>
