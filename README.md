@@ -57,7 +57,7 @@ Todos los endpoints requieren el header `X-API-Key`.
    DATABASE_URL=${{Postgres.DATABASE_URL}}
    API_KEY=<python -c "import secrets; print(secrets.token_urlsafe(32))">
    ```
-4. Las migraciones Alembic se aplican en el `release` command del Procfile.
+4. Las migraciones Alembic se aplican automáticamente en el CMD de `api/Dockerfile` (`alembic upgrade head && uvicorn …`).
 
 ## Skill
 

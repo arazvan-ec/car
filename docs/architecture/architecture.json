@@ -155,10 +155,10 @@
     "platform": "railway",
     "topology": "Dos servicios separados: API (Python) + frontend (Express estático que sirve la SPA)",
     "files": {
-      "api_dockerfile": "Dockerfile",
-      "frontend_dockerfile": "Dockerfile.frontend",
-      "railway_config": "railway.toml (apunta a Dockerfile.frontend — confirmar que API usa otra ruta de build)",
-      "procfile": "Procfile (uvicorn app.main:app)"
+      "api_dockerfile": "api/Dockerfile (root_directory=/api en Railway)",
+      "frontend_dockerfile": "Dockerfile.frontend (raíz)",
+      "api_railway_config": "api/railway.toml",
+      "frontend_railway_config": "railway.toml (raíz)"
     },
     "urls": {
       "api_production": "https://carr-production.up.railway.app",
@@ -168,16 +168,9 @@
       "api": ["DATABASE_URL", "API_KEY"],
       "frontend": ["VITE_API_URL", "VITE_API_KEY"]
     },
-    "migrations": "Alembic (api/migrations/). El upgrade head debe ejecutarse en el release/start del deploy de la API. La migración c1a7f0d4e9b2_drop_legacy_entities elimina las tablas legacy."
+    "migrations": "Alembic (api/migrations/). Se aplican en el CMD de api/Dockerfile (alembic upgrade head && uvicorn ...). La migración c1a7f0d4e9b2_drop_legacy_entities elimina las tablas legacy."
   },
   "known_issues": [
-    {
-      "id": "ISSUE-1",
-      "severity": "high",
-      "title": "Directorio /app/ legacy duplicado en la raíz",
-      "details": "/app/ (raíz) contiene una copia obsoleta del backend que aún tiene entities.py, translators.py, models.py, endpoints analyses/comparisons/stats. El Dockerfile usa WORKDIR /app y CMD 'uvicorn app.main:app' — con COPY . . el path /app/app/main.py podría resolverse a la copia legacy, no a api/app/. Debe borrarse /app/ y verificar que el deploy de la API apunta explícitamente a api/app/.",
-      "files": ["app/", "Dockerfile", "Procfile"]
-    },
     {
       "id": "ISSUE-2",
       "severity": "high",
@@ -205,13 +198,6 @@
       "title": "Sin rate limiting ni input validation estricta",
       "details": "Endpoints sin throttle. AddSourceRequest/UpdateStepRequest aceptan strings y dicts arbitrarios sin max_length ni shape validation.",
       "files": ["api/app/api/v1/endpoints/pipelines.py"]
-    },
-    {
-      "id": "ISSUE-6",
-      "severity": "low",
-      "title": "Zip de skill versionado en repo",
-      "details": "'car-configurator-preferences (1).zip' está en la raíz commit; el contenido descomprimido está en skills/. El zip puede borrarse.",
-      "files": ["car-configurator-preferences (1).zip"]
     },
     {
       "id": "ISSUE-7",
