@@ -392,14 +392,29 @@ function FinalDecisionView({ data }: { data: Json }) {
   const recommended = bool(d.recommended);
   const score = num(d.score);
   const completeness = num(d.completeness_score);
-  const breakdown = (d.completeness_breakdown ?? {}) as Record<string, boolean>;
+  const rawBreakdown = (d.completeness_breakdown ?? {}) as Record<string, unknown>;
+  type BreakdownEntry = { ok: boolean; applicable: boolean; rationale?: string };
+  const breakdown: Record<string, BreakdownEntry> = Object.fromEntries(
+    Object.entries(rawBreakdown).map(([k, v]) => {
+      if (typeof v === "boolean") return [k, { ok: v, applicable: true }];
+      const o = (v ?? {}) as Record<string, unknown>;
+      return [k, {
+        ok: typeof o.ok === "boolean" ? o.ok : false,
+        applicable: typeof o.applicable === "boolean" ? o.applicable : true,
+        rationale: typeof o.rationale === "string" ? o.rationale : undefined,
+      }];
+    })
+  );
+  // Mantener el orden del catálogo de la sección 1.2 del skill
+  const breakdownOrder = ["max_power", "wheels_20", "awd", "matrix_led", "full_adas", "top_trim", "hybrid_match"];
   const breakdownLabels: Record<string, string> = {
-    max_power: "Motor más potente",
-    wheels_20: 'Llantas 20"',
-    top_trim: "Acabado tope",
-    awd: "Tracción AWD",
-    matrix_led: "LED matricial",
-    full_adas: "ADAS completo",
+    max_power:    "Motor más potente",
+    wheels_20:    'Llantas 20"',
+    awd:          "Tracción AWD",
+    matrix_led:   "Faros matrix/LED",
+    full_adas:    "ADAS completo",
+    top_trim:     "Acabado tope",
+    hybrid_match: "Híbrido coherente",
   };
   return (
     <div className="space-y-4">
@@ -443,20 +458,40 @@ function FinalDecisionView({ data }: { data: Json }) {
 
       {Object.keys(breakdown).length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">Ejes del skill</p>
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(breakdownLabels).map(([k, label]) => {
-              if (!(k in breakdown)) return null;
-              const ok = breakdown[k];
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
+            Características del skill ({Object.values(breakdown).filter(e => e.ok).length}/
+            {Object.values(breakdown).filter(e => e.applicable).length} cumplidas)
+          </p>
+          <ul className="grid sm:grid-cols-2 gap-1.5">
+            {breakdownOrder.filter(k => k in breakdown).map(k => {
+              const entry = breakdown[k];
+              const label = breakdownLabels[k] ?? k;
+              const notApplicable = !entry.applicable;
+              const tone =
+                notApplicable ? "bg-muted text-muted-foreground border-border" :
+                entry.ok      ? "bg-green-50 text-green-700 border-green-200" :
+                                "bg-red-50 text-red-700 border-red-200";
               return (
-                <span key={k} className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border ${
-                  ok ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"
-                }`}>
-                  {ok ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}{label}
-                </span>
+                <li
+                  key={k}
+                  className={`flex items-start gap-2 text-[11px] px-2 py-1.5 rounded border ${tone}`}
+                  title={entry.rationale}
+                >
+                  <span className="mt-0.5 shrink-0">
+                    {notApplicable ? <span className="text-muted-foreground">—</span> :
+                     entry.ok       ? <Check className="w-3 h-3" /> :
+                                      <X className="w-3 h-3" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium">{label}{notApplicable && " (n/a)"}</p>
+                    {entry.rationale && (
+                      <p className="text-[10px] opacity-80 leading-snug">{entry.rationale}</p>
+                    )}
+                  </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
       )}
 

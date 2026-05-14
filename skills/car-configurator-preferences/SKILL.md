@@ -11,16 +11,41 @@ Este skill gestiona análisis de vehículos como **pipelines de enriquecimiento 
 
 ## 1. Principios de Configuración
 
-Objetivo: **configurar siempre el coche más completo posible** dentro del modelo elegido. Al evaluar y recomendar, aplicar estos principios en este orden de prioridad:
+### 1.1 Compromiso
 
-1. **Motor más potente disponible (PRIORIDAD MÁXIMA):** Elegir siempre la motorización con mayor potencia (CV) y mayor par (Nm) que ofrezca el fabricante en ese trim. Si hay variante AWD con más potencia que la FWD, escoger AWD. La potencia define el carácter del coche y es irreversible una vez comprado.
-2. **Llantas de 20" (obligatorio si el modelo lo ofrece):** Priorizar siempre llantas de 20" sobre 19" o 18". Mejor estética, presencia y suelen incluir frenos/suspensión superiores. Solo descartar 20" si penaliza la etiqueta DGT o reduce drásticamente el confort en pruebas (>2 fuentes lo confirman).
-3. **Seguridad Activa premium:** Faros LED matriciales o full-LED adaptativos, ADAS completo de serie (frenado emergencia, control crucero adaptativo, asistente carril, reconocimiento señales).
-4. **Estética y acabado tope de gama:** Acabados "X" o el más alto disponible (ST-Line X, Active X, R-Line, GR Sport, Black Edition, …). Pack premium si existe.
-5. **Tracción total (AWD):** Si el modelo la ofrece, AWD por defecto. Aporta seguridad, tracción y se nota en valor residual.
-6. **Híbridos:** Sin carga diaria → descartar PHEV, elegir FHEV AWD con la mayor potencia. Con carga diaria garantizada → PHEV en su versión más potente.
+Cada `vehicle_analysis` se compromete a **configurar el mejor coche posible y más óptimo** dentro del modelo elegido. Esto **no** es una opinión: el skill mantiene una lista cerrada de **características de configuración** con su **beneficio objetivo** (sección 1.2). Toda decisión final debe evaluar y justificar el cumplimiento de cada característica (sección 1.3).
 
-> **Regla de decisión rápida:** "Más CV + ruedas de 20\" + acabado X + AWD" = el coche más completo. La `final_decision` debe justificar cada uno de esos cuatro ejes y, si alguno falta, explicar por qué (limitación de catálogo, no penalización opcional).
+### 1.2 Catálogo de características
+
+Cada característica tiene un `id` estable (usado en `final_decision.completeness_breakdown`), un **principio** (qué hay que cumplir), un **beneficio** (por qué importa) y un **criterio de cumplimiento** (cómo se mide sobre el `structured_result` de los pasos).
+
+| id | Principio | Beneficio (por qué) | Criterio de cumplimiento |
+|---|---|---|---|
+| `max_power` | Elegir siempre la motorización con mayor CV y par del modelo. | **Mejor respuesta de conducción**: adelantamientos más cortos y seguros, mejor entrada en autopista, motor menos forzado en cargas altas → menos fatiga mecánica. Define el carácter del coche y es irreversible tras la compra. | `technical_specs.horsepower == technical_specs.max_horsepower_in_range` |
+| `wheels_20` | Llantas de **20"** siempre que el modelo las ofrezca. | **Mejor seguridad**: mayor superficie de contacto, frenadas más cortas, comportamiento más estable a velocidad de autovía y en curva. Además mejor estética y suspensión/frenos suelen ser superiores. | `technical_specs.wheel_size_inches == max(technical_specs.available_wheel_sizes)` y `>= 20` si el catálogo lo permite |
+| `awd` | Tracción total cuando el modelo la ofrece. | **Más seguridad activa**: adherencia en lluvia/nieve/firme sucio, mejor reparto de par en aceleración. Mejor valor residual en mercado de segunda mano. | `technical_specs.drivetrain == "AWD"` si AWD está disponible en la gama |
+| `matrix_led` | Faros LED matriciales o full-LED adaptativos. | **Visión nocturna superior**: más alcance, sin deslumbrar a otros conductores, reacción más rápida ante peatones/obstáculos. Reduce el riesgo de accidente nocturno. | `technical_specs.headlights_type` contiene `"Matric"`, `"Adaptativ"` o `"Full-LED"` |
+| `full_adas` | Pack ADAS completo de serie. | **Reduce siniestros**: el frenado de emergencia y el control de carril son los ADAS con mayor impacto demostrado en accidentes evitados. Mejora también la puntuación NCAP. | `technical_specs.adas_features` incluye: frenado emergencia automático, control crucero adaptativo, asistente carril, reconocimiento señales |
+| `top_trim` | Acabado tope de gama (ST-Line X, Active X, R-Line, GR Sport, Black Edition…). | **Mejor equipamiento de serie y materiales**, mejor estética, mejor valor residual. Suele desbloquear opciones de seguridad/comfort no disponibles en acabados bajos. | `subject_data.trim` coincide con el acabado más alto del modelo |
+| `hybrid_match` | Híbrido coherente con el patrón de uso del comprador. | **Maximiza el ahorro real**: sin carga diaria un PHEV pierde sentido económico (peso muerto de batería); con carga garantizada, un PHEV potente combina silencio eléctrico urbano y potencia en viaje. | Sin carga → `fuel_type ∈ {FHEV, MHEV, BEV}`. Con carga → `fuel_type ∈ {PHEV, BEV}` y `horsepower == max_horsepower_in_range` |
+
+> Estas características son **la única fuente de verdad** para evaluar la configuración. Cualquier otra preferencia (color, llantas específicas, packs decorativos…) es *secundaria* y **no entra en el `completeness_score`**.
+
+### 1.3 Aplicación sobre cada análisis
+
+Cuando un `vehicle_analysis` cierra el paso `final_decision` debe, obligatoriamente:
+
+1. **Evaluar** las 7 características anteriores contra los `structured_result` de los pasos previos.
+2. **Rellenar** `completeness_breakdown` con `true | false` por cada `id` de la sección 1.2.
+3. **Calcular** `completeness_score = (#true / #aplicables) * 10`. Una característica solo se considera **no aplicable** si el catálogo del fabricante no la ofrece para ese modelo (ej. modelo sin variante AWD); en ese caso se omite del denominador en lugar de penalizar.
+4. **Justificar** en `reasoning` cada `false`, diferenciando:
+   - **Imposible por catálogo** → no penaliza la recomendación (ej. el modelo no ofrece 20").
+   - **Decisión consciente del comprador** → sí penaliza (ej. eligió 19" disponiendo de 20").
+5. **Recomendar** (`recommended = true`) solo si:
+   - `completeness_score >= 7.0`
+   - `max_power` y `wheels_20` están en `true` cuando son aplicables.
+
+> **Regla de decisión rápida:** "Más CV + ruedas de 20\" + AWD + acabado tope" = el coche más completo. Cualquier desviación queda registrada y razonada en el propio análisis.
 
 ---
 
@@ -197,20 +222,21 @@ Datos JSON que debe contener `structured_result` de cada paso:
   "recommended_wheels_inches": 20,
   "completeness_score": 9.1,
   "completeness_breakdown": {
-    "max_power": true,
-    "wheels_20": true,
-    "top_trim": true,
-    "awd": true,
-    "matrix_led": true,
-    "full_adas": true
+    "max_power":    { "ok": true,  "applicable": true,  "rationale": "243 CV = tope de la gama PHEV." },
+    "wheels_20":    { "ok": true,  "applicable": true,  "rationale": "20\" disponibles en ST-Line X y montadas." },
+    "awd":          { "ok": true,  "applicable": true,  "rationale": "AWD elegido sobre FWD." },
+    "matrix_led":   { "ok": true,  "applicable": true,  "rationale": "Faros LED matriciales de serie en acabado X." },
+    "full_adas":    { "ok": true,  "applicable": true,  "rationale": "Pack ADAS completo de serie." },
+    "top_trim":     { "ok": true,  "applicable": true,  "rationale": "ST-Line X es el acabado más alto." },
+    "hybrid_match": { "ok": true,  "applicable": true,  "rationale": "Usuario con punto de carga → PHEV potente coherente." }
   },
-  "reasoning": "Configuración más completa del modelo: motor tope de gama, llantas 20\", acabado X y AWD.",
+  "reasoning": "Cumple las 7 características del skill: motor tope de gama, 20\", AWD, matrix LED, ADAS completo, acabado X y PHEV coherente con carga diaria.",
   "score": 8.2,
   "verdict": "Mejor opción del segmento priorizando potencia y equipamiento"
 }
 ```
 
-> `completeness_breakdown` debe marcar como `true` cada eje de los principios (sección 1) que se haya cubierto. Si algún eje queda en `false`, `reasoning` debe explicar por qué no era posible alcanzarlo en este modelo.
+> Cada entrada de `completeness_breakdown` debe usar uno de los `id` definidos en la sección 1.2 e incluir `ok` (booleano), `applicable` (booleano, ver regla 3 de la sección 1.3) y `rationale` (texto breve justificando el valor).
 
 ---
 
