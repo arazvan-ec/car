@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.router import api_router
-from app.db import entities  # noqa: F401 — registrar modelos
+from app.db import pipeline_entities  # noqa: F401 — registrar modelos
 
 
 @asynccontextmanager
