@@ -1,16 +1,20 @@
 /**
  * Página: Detalle de PipelineRun
- * Muestra todos los pasos, sus fuentes y el historial de versiones de caché
+ * - Para `vehicle_analysis`: hero con specs clave + pasos con vistas visuales (UX/UI).
+ * - Para `vehicle_comparison`: vista side-by-side cargando los análisis referenciados.
  */
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useApiData } from "@/hooks/useApi";
 import Layout from "@/components/Layout";
 import { PageHeader, ErrorState } from "@/components/ui-custom";
+import AnalysisHero, { vehicleTitle } from "@/components/AnalysisHero";
+import ComparisonView from "@/components/ComparisonView";
+import { StepResultView } from "@/components/StepResultViews";
 import {
   ArrowLeft, CheckCircle2, Clock, AlertCircle, RefreshCw,
   ChevronDown, ChevronUp, ExternalLink, Database, History,
-  Zap, FileText
+  Zap, GitCompare,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -55,6 +59,13 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "text-green-600", pending: "text-amber-500",
   running: "text-blue-500", stale: "text-orange-500", failed: "text-red-500",
 };
+const STATUS_BG: Record<string, string> = {
+  completed: "bg-green-50 text-green-700 border-green-200",
+  stale:     "bg-orange-50 text-orange-700 border-orange-200",
+  failed:    "bg-red-50 text-red-700 border-red-200",
+  pending:   "bg-amber-50 text-amber-700 border-amber-200",
+  running:   "bg-blue-50 text-blue-700 border-blue-200",
+};
 
 const STEP_LABELS: Record<string, string> = {
   technical_specs:      "Ficha Técnica",
@@ -67,10 +78,11 @@ const STEP_LABELS: Record<string, string> = {
   final_decision:       "Decisión Final",
 };
 
-// ── Componentes ───────────────────────────────────────────────────────────────
+// ── Source card ───────────────────────────────────────────────────────────────
 
 function SourceCard({ source }: { source: DataSource }) {
   const [showRaw, setShowRaw] = useState(false);
+  const [showJson, setShowJson] = useState(false);
   const cache = source.current_cache;
 
   return (
@@ -87,22 +99,28 @@ function SourceCard({ source }: { source: DataSource }) {
           )}
         </div>
         <a href={source.source_url} target="_blank" rel="noopener noreferrer"
-           className="text-primary hover:text-primary/80 transition-colors">
+           className="text-primary hover:text-primary/80 transition-colors" aria-label="Abrir fuente">
           <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
 
       {cache?.structured_data && (
-        <div className="mb-2">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Datos extraídos</p>
-          <pre className="text-[10px] font-mono bg-card rounded p-2 overflow-x-auto border border-border text-foreground">
-            {JSON.stringify(cache.structured_data, null, 2)}
-          </pre>
-        </div>
+        <button
+          onClick={() => setShowJson(s => !s)}
+          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {showJson ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {showJson ? "Ocultar" : "Ver"} JSON extraído
+        </button>
+      )}
+      {showJson && cache?.structured_data && (
+        <pre className="mt-1.5 text-[10px] font-mono bg-card rounded p-2 overflow-x-auto border border-border text-foreground max-h-64">
+          {JSON.stringify(cache.structured_data, null, 2)}
+        </pre>
       )}
 
       {cache?.raw_content && (
-        <>
+        <div className="mt-1.5">
           <button
             onClick={() => setShowRaw(!showRaw)}
             className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
@@ -111,22 +129,25 @@ function SourceCard({ source }: { source: DataSource }) {
             {showRaw ? "Ocultar" : "Ver"} texto completo guardado
           </button>
           {showRaw && (
-            <pre className="mt-2 text-[10px] font-mono bg-card rounded p-2 overflow-x-auto border border-border text-muted-foreground whitespace-pre-wrap max-h-64">
+            <pre className="mt-1.5 text-[10px] font-mono bg-card rounded p-2 overflow-x-auto border border-border text-muted-foreground whitespace-pre-wrap max-h-64">
               {cache.raw_content}
             </pre>
           )}
-        </>
+        </div>
       )}
 
       {cache?.notes && (
-        <p className="text-[10px] text-muted-foreground italic mt-1">Nota: {cache.notes}</p>
+        <p className="text-[10px] text-muted-foreground italic mt-1.5">Nota: {cache.notes}</p>
       )}
     </div>
   );
 }
 
+// ── Step card ────────────────────────────────────────────────────────────────
+
 function StepCard({ step }: { step: PipelineStep }) {
   const [expanded, setExpanded] = useState(step.status !== "pending");
+  const [showJson, setShowJson] = useState(false);
   const Icon = STATUS_ICON[step.status] ?? Clock;
   const color = STATUS_COLOR[step.status] ?? "text-muted-foreground";
 
@@ -154,7 +175,7 @@ function StepCard({ step }: { step: PipelineStep }) {
             </span>
           )}
           {step.depends_on.length > 0 && (
-            <span className="text-[10px] text-muted-foreground hidden sm:block">
+            <span className="text-[10px] text-muted-foreground hidden md:block">
               deps: {step.depends_on.join(", ")}
             </span>
           )}
@@ -173,12 +194,22 @@ function StepCard({ step }: { step: PipelineStep }) {
 
           {step.structured_result && (
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FileText className="w-3 h-3" /> Resultado procesado
-              </p>
-              <pre className="text-[10px] font-mono bg-muted/30 rounded p-3 overflow-x-auto border border-border text-foreground">
-                {JSON.stringify(step.structured_result, null, 2)}
-              </pre>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Resultado</p>
+                <button
+                  onClick={() => setShowJson(s => !s)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+                >
+                  {showJson ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {showJson ? "ocultar JSON" : "ver JSON"}
+                </button>
+              </div>
+              <StepResultView stepType={step.step_type} data={step.structured_result} />
+              {showJson && (
+                <pre className="mt-3 text-[10px] font-mono bg-muted/30 rounded p-3 overflow-x-auto border border-border text-foreground">
+                  {JSON.stringify(step.structured_result, null, 2)}
+                </pre>
+              )}
             </div>
           )}
 
@@ -206,6 +237,39 @@ function StepCard({ step }: { step: PipelineStep }) {
   );
 }
 
+// ── Resumen de progreso ──────────────────────────────────────────────────────
+
+function ProgressSummary({ run }: { run: PipelineRun }) {
+  const segs = [
+    { key: "completed", count: run.steps_completed, color: "bg-green-500" },
+    { key: "stale",     count: run.steps_stale,     color: "bg-orange-400" },
+    { key: "failed",    count: run.steps_failed,    color: "bg-red-400" },
+    { key: "pending",   count: run.steps_pending,   color: "bg-amber-300" },
+  ];
+  const total = run.steps_total || 1;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Progreso del pipeline</p>
+        <p className="text-xs font-mono tabular-nums">{run.steps_completed}/{run.steps_total} completados</p>
+      </div>
+      <div className="w-full h-2 rounded-full overflow-hidden flex bg-border/60">
+        {segs.map(s => (
+          <div key={s.key} className={`h-full ${s.color} transition-all`} style={{ width: `${(s.count / total) * 100}%` }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-muted-foreground">
+        {segs.map(s => s.count > 0 && (
+          <span key={s.key} className="inline-flex items-center gap-1">
+            <span className={`inline-block w-2 h-2 rounded-full ${s.color}`} />
+            {s.count} {s.key}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function PipelineDetail() {
@@ -217,19 +281,18 @@ export default function PipelineDetail() {
     params?.id ? `/api/v1/pipelines/runs/${params.id}` : ""
   );
 
-  const subject = run?.subject_data as Record<string, string> | undefined;
   const isComparison = run?.pipeline_type === "vehicle_comparison";
+  const isAnalysis   = run?.pipeline_type === "vehicle_analysis";
+  const subject = run?.subject_data as Record<string, string> | undefined;
   const title = isComparison
     ? "Comparativa"
-    : subject
-      ? [subject.brand, subject.model, subject.year, subject.trim].filter(Boolean).join(" ")
-      : "Pipeline";
-  const backHref = isComparison ? "/comparisons" : run ? "/analyses" : "/pipelines";
-  const backLabel = isComparison ? "comparativas" : run ? "análisis" : "pipelines";
+    : subject ? vehicleTitle(subject) : "Pipeline";
+  const backHref = isComparison ? "/comparisons" : isAnalysis ? "/analyses" : "/pipelines";
+  const backLabel = isComparison ? "comparativas" : isAnalysis ? "análisis" : "pipelines";
 
   return (
     <Layout>
-      <div className="mb-6">
+      <div className="mb-4">
         <Link href={backHref}>
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" /> Volver a {backLabel}
@@ -244,29 +307,39 @@ export default function PipelineDetail() {
       ) : error ? <ErrorState message={error} />
       : !run ? null : (
         <>
-          <PageHeader title={title} subtitle={`${run.pipeline_type} · ${run.steps_completed}/${run.steps_total} pasos completados`}>
-            <span className={`text-xs font-medium px-2 py-1 rounded border ${
-              run.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
-              run.status === "stale" ? "bg-orange-50 text-orange-700 border-orange-200" :
-              run.status === "failed" ? "bg-red-50 text-red-700 border-red-200" :
-              "bg-amber-50 text-amber-700 border-amber-200"
-            }`}>
+          <PageHeader
+            title={title}
+            subtitle={`${run.pipeline_type} · ${run.steps_completed}/${run.steps_total} pasos completados`}
+          >
+            <span className={`text-xs font-medium px-2 py-1 rounded border ${STATUS_BG[run.status] ?? STATUS_BG.pending}`}>
               {run.status}
             </span>
           </PageHeader>
 
-          {/* Decisión final */}
-          {run.decision && (
-            <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold">Decisión Final</h2>
+          {/* Hero específico por tipo */}
+          {isAnalysis && <AnalysisHero run={run} />}
+          {isComparison && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <GitCompare className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-semibold">Análisis comparados</h2>
               </div>
-              <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
-                {JSON.stringify(run.decision, null, 2)}
-              </pre>
+              <ComparisonView run={run} />
             </div>
           )}
+
+          {/* Decisión final destacada (cuando hay y no es una comparativa que ya la renderiza) */}
+          {run.decision && !isComparison && (
+            <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4 text-primary" />
+                <h2 className="text-sm font-semibold">Decisión Final del skill</h2>
+              </div>
+              <StepResultView stepType="final_decision" data={run.decision} />
+            </div>
+          )}
+
+          <ProgressSummary run={run} />
 
           {/* Pasos del pipeline */}
           <div className="space-y-3">

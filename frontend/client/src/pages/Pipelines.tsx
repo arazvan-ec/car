@@ -1,20 +1,23 @@
 /**
  * Página: Pipelines — Lista filtrable por tipo (análisis o comparativa).
+ * UX/UI: tarjetas con preview de specs clave, badges de progreso y estado,
+ * y resumen compacto para comparativas (coches incluidos).
  */
 import { Link } from "wouter";
 import { useApiData, type PipelineRunSummary } from "@/hooks/useApi";
 import Layout from "@/components/Layout";
 import { PageHeader, EmptyState, ErrorState } from "@/components/ui-custom";
 import {
-  CheckCircle2, Clock, AlertCircle, RefreshCw, ExternalLink, GitCompare, Car,
+  CheckCircle2, Clock, AlertCircle, RefreshCw, GitCompare, Car,
+  Zap, Disc, Fuel, Tag, ChevronRight,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  completed: { label: "Completado",    color: "text-green-600 bg-green-50 border-green-200",  icon: CheckCircle2 },
-  pending:   { label: "Pendiente",     color: "text-amber-600 bg-amber-50 border-amber-200",  icon: Clock },
-  running:   { label: "En ejecución",  color: "text-blue-600 bg-blue-50 border-blue-200",     icon: RefreshCw },
-  stale:     { label: "Desactualizado",color: "text-orange-600 bg-orange-50 border-orange-200",icon: AlertCircle },
-  failed:    { label: "Fallido",       color: "text-red-600 bg-red-50 border-red-200",        icon: AlertCircle },
+  completed: { label: "Completado",    color: "text-green-700 bg-green-50 border-green-200",  icon: CheckCircle2 },
+  pending:   { label: "Pendiente",     color: "text-amber-700 bg-amber-50 border-amber-200",  icon: Clock },
+  running:   { label: "En ejecución",  color: "text-blue-700 bg-blue-50 border-blue-200",     icon: RefreshCw },
+  stale:     { label: "Desactualizado",color: "text-orange-700 bg-orange-50 border-orange-200",icon: AlertCircle },
+  failed:    { label: "Fallido",       color: "text-red-700 bg-red-50 border-red-200",        icon: AlertCircle },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -22,7 +25,7 @@ function StatusBadge({ status }: { status: string }) {
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${cfg.color}`}>
-      <Icon className="w-3 h-3" />
+      <Icon className={`w-3 h-3 ${status === "running" ? "animate-spin" : ""}`} />
       {cfg.label}
     </span>
   );
@@ -38,6 +41,50 @@ function ProgressBar({ completed, total, stale, failed }: { completed: number; t
       <div className="h-full bg-green-500 transition-all" style={{ width: `${completedPct}%` }} />
       <div className="h-full bg-orange-400 transition-all" style={{ width: `${stalePct}%` }} />
       <div className="h-full bg-red-400 transition-all" style={{ width: `${failedPct}%` }} />
+    </div>
+  );
+}
+
+function MetaChip({ icon: Icon, value }: { icon: React.ElementType; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+      <Icon className="w-3 h-3" />{value}
+    </span>
+  );
+}
+
+function SubjectPreview({ run }: { run: PipelineRunSummary }) {
+  const s = run.subject_data as Record<string, unknown>;
+  if (run.pipeline_type === "vehicle_comparison") {
+    const vehicles = (s.vehicles as Array<{ brand?: string; model?: string; trim?: string }> | undefined) ?? [];
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <MetaChip icon={GitCompare} value={`${vehicles.length} coches`} />
+        {vehicles.slice(0, 3).map((v, i) => (
+          <span key={i} className="text-[11px] text-muted-foreground">
+            {[v.brand, v.model, v.trim].filter(Boolean).join(" ") || "coche"}
+            {i < Math.min(vehicles.length, 3) - 1 ? " · " : ""}
+          </span>
+        ))}
+        {vehicles.length > 3 && <span className="text-[11px] text-muted-foreground">+{vehicles.length - 3}</span>}
+      </div>
+    );
+  }
+  const fuel = typeof s.fuel_type === "string" ? s.fuel_type : undefined;
+  const cv = typeof s.horsepower === "number" ? s.horsepower : undefined;
+  const wheels = typeof s.wheel_size_inches === "number" ? s.wheel_size_inches : undefined;
+  const price = typeof s.list_price_eur === "number" ? s.list_price_eur :
+                typeof s.estimated_street_price_eur === "number" ? s.estimated_street_price_eur : undefined;
+  const segment = typeof s.segment === "string" ? s.segment : undefined;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {segment && <MetaChip icon={Car} value={segment} />}
+      {cv !== undefined && <MetaChip icon={Zap} value={`${cv} CV`} />}
+      {wheels !== undefined && <MetaChip icon={Disc} value={`${wheels}"`} />}
+      {fuel && <MetaChip icon={Fuel} value={fuel} />}
+      {price !== undefined && (
+        <MetaChip icon={Tag} value={new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(price)} />
+      )}
     </div>
   );
 }
@@ -70,13 +117,13 @@ export default function PipelinesPage({ filter = "all", basePath }: { filter?: F
       : loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
+            <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
       ) : !runs?.length ? (
         <EmptyState message={`No hay ${filter === "vehicle_comparison" ? "comparativas" : "pipelines"} aún`} />
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {runs.map(run => {
             const subject = run.subject_data as Record<string, string>;
             const title = run.pipeline_type === "vehicle_comparison"
@@ -85,39 +132,43 @@ export default function PipelinesPage({ filter = "all", basePath }: { filter?: F
             const Icon = run.pipeline_type === "vehicle_comparison" ? GitCompare : Car;
             return (
               <Link key={run.id} href={`${detailBase}/${run.id}`}>
-                <div className="rounded-xl border border-border bg-card p-5 hover:shadow-sm transition-shadow cursor-pointer">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span className="font-semibold text-sm">{title}</span>
-                        <StatusBadge status={run.status} />
-                        {run.skill_version && (
-                          <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded border border-border">
-                            {run.skill_version}
-                          </span>
-                        )}
+                <div className="group rounded-xl border border-border bg-card p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer h-full">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4 text-primary" />
                       </div>
-                      <p className="text-xs text-muted-foreground font-mono mb-3">
-                        {run.pipeline_type} · {new Date(run.created_at).toLocaleDateString("es-ES")}
-                      </p>
-                      <ProgressBar
-                        completed={run.steps_completed}
-                        total={run.steps_total}
-                        stale={run.steps_stale}
-                        failed={run.steps_failed}
-                      />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{title}</p>
+                        <p className="text-[11px] text-muted-foreground font-mono">
+                          {new Date(run.created_at).toLocaleDateString("es-ES")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-mono font-semibold text-foreground">
-                        {run.steps_completed}/{run.steps_total}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">pasos</p>
-                      {run.steps_stale > 0 && (
-                        <p className="text-[10px] text-orange-500 mt-0.5">{run.steps_stale} stale</p>
-                      )}
-                      <ExternalLink className="w-3 h-3 text-muted-foreground mt-1 ml-auto" />
-                    </div>
+                    <StatusBadge status={run.status} />
+                  </div>
+
+                  <div className="mb-3">
+                    <SubjectPreview run={run} />
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <ProgressBar
+                      completed={run.steps_completed}
+                      total={run.steps_total}
+                      stale={run.steps_stale}
+                      failed={run.steps_failed}
+                    />
+                    <p className="text-[11px] font-mono font-semibold text-foreground tabular-nums shrink-0">
+                      {run.steps_completed}/{run.steps_total}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="font-mono">{run.skill_version ?? run.pipeline_type}</span>
+                    <span className="inline-flex items-center gap-0.5 group-hover:text-primary transition-colors">
+                      Ver detalle <ChevronRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </div>
               </Link>
