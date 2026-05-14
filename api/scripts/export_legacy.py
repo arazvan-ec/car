@@ -6,7 +6,7 @@ que borra estas tablas en favor del modelo unificado basado en PipelineRun.
 
 Uso:
     API_URL=https://carr-production.up.railway.app \
-    API_KEY=mi-clave-secreta-car-analytics-2026 \
+    API_KEY=<tu-api-key> \
     python api/scripts/export_legacy.py [output_dir]
 
 Si no se pasa output_dir, escribe en ./legacy_export_YYYYMMDD/.

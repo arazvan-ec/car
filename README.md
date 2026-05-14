@@ -66,7 +66,7 @@ El skill `car-configurator-preferences` (en `skills/car-configurator-preferences
 ## Desarrollo local
 
 ```bash
-pip install -r requirements.txt
+pip install -r api/requirements.txt
 cp .env.example .env  # editar DATABASE_URL local
 
 # Migraciones

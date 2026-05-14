@@ -303,7 +303,7 @@ final_decision ◀───────────── todos los anteriores
     <dt>Versión</dt><dd>v2.0</dd>
   </dl>
   <p>Playbook que define cómo orquestar un análisis contra la API: principios de configuración, los 8 step types, sus dependencias, y los schemas JSON exactos para <code>structured_result</code> de cada paso. Lo usa el agente IA al crear/actualizar pipelines.</p>
-  <div class="warn"><strong>Warning</strong>: <code>SKILL.md:208</code> filtra la API key (<code>mi-clave-secreta-car-analytics-2026</code>) en texto plano. Rotar la <code>API_KEY</code> en Railway y sustituir por placeholder antes de seguir.</div>
+  <div class="warn"><strong>Recordatorio</strong>: la <code>API_KEY</code> ya no se versiona en <code>SKILL.md</code> (placeholder <code>&lt;API_KEY&gt;</code>). La key real vive solo como env var. La key original quedó en el historial de git (commits anteriores a este) — rotarla en Railway si todavía no se ha hecho.</div>
 </section>
 
 <section id="deploy">

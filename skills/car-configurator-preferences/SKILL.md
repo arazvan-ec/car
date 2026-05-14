@@ -205,7 +205,7 @@ Al finalizar el pipeline completo, preguntar siempre:
 ## 6. Configuración de la API
 
 - **Base URL:** `https://carr-production.up.railway.app`
-- **Auth:** header `X-API-Key: mi-clave-secreta-car-analytics-2026`
+- **Auth:** header `X-API-Key: <API_KEY>` — el valor se configura como variable de entorno en el cliente. Nunca debe quedar versionado en este archivo. Si has rotado la key en Railway, sustitúyela sólo en tu entorno local o gestor de secretos.
 - **Docs:** `https://carr-production.up.railway.app/docs`
 
 Si la API no está disponible, continuar el análisis sin persistir y notificar brevemente al usuario.
