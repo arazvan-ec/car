@@ -113,25 +113,31 @@ function buildRows(runs: PipelineRunLike[]): Row[] {
 function VehicleColumnHeader({
   run, isWinner,
 }: { run: PipelineRunLike; isWinner: boolean }) {
-  const title = vehicleTitle(run.subject_data);
+  const s = run.subject_data as Record<string, unknown>;
+  const brand = typeof s.brand === "string" ? s.brand : undefined;
+  const model = typeof s.model === "string" ? s.model : undefined;
+  const trim  = typeof s.trim  === "string" ? s.trim  : undefined;
   const score = num(run.decision?.score) ?? num(getStepData(run, "final_decision")?.score);
   return (
-    <div className={`rounded-xl border p-3 ${isWinner ? "border-amber-300 bg-amber-50" : "border-border bg-card"}`}>
-      <div className="flex items-center gap-2 mb-1">
-        {isWinner ? <Crown className="w-4 h-4 text-amber-500" /> : <Car className="w-4 h-4 text-primary" />}
-        <p className="text-sm font-semibold truncate">{title}</p>
+    <div className={`rounded-xl border p-2.5 ${isWinner ? "border-amber-300 bg-amber-50" : "border-border bg-card"}`}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        {isWinner ? <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" /> : <Car className="w-3.5 h-3.5 text-primary shrink-0" />}
+        <div className="min-w-0 leading-tight">
+          <p className="text-xs font-semibold truncate">{brand} {model}</p>
+          {trim && <p className="text-[10px] text-muted-foreground truncate">{trim}</p>}
+        </div>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-1">
         {score !== undefined ? (
-          <span className="inline-flex items-center gap-1 text-xs">
-            <Trophy className="w-3 h-3 text-amber-500" />
-            <span className="font-semibold tabular-nums">{score.toFixed(1)}</span>
-            <span className="text-muted-foreground">/10</span>
+          <span className="inline-flex items-baseline gap-0.5 text-xs">
+            <Trophy className="w-3 h-3 text-amber-500 self-center" />
+            <span className="font-semibold tabular-nums text-sm">{score.toFixed(1)}</span>
+            <span className="text-[10px] text-muted-foreground">/10</span>
           </span>
-        ) : <span className="text-xs text-muted-foreground">sin score</span>}
+        ) : <span className="text-[10px] text-muted-foreground">sin score</span>}
         <Link href={`/analyses/${run.id}`}>
-          <span className="text-xs text-primary inline-flex items-center gap-0.5 hover:underline">
-            análisis <ExternalLink className="w-3 h-3" />
+          <span className="text-[10px] text-primary inline-flex items-center gap-0.5 hover:underline">
+            ver <ExternalLink className="w-2.5 h-2.5" />
           </span>
         </Link>
       </div>
@@ -180,46 +186,65 @@ export default function ComparisonView({ run }: { run: PipelineRunLike }) {
 
   const rows = buildRows(analyses);
 
+  // Anchos columna fijos para permitir scroll horizontal en móvil sin colapsar
+  const LABEL_W = 132; // px
+  const CAR_W   = 144; // px por coche
+  const innerMinPx = LABEL_W + analyses.length * CAR_W;
+  const gridCols = `${LABEL_W}px repeat(${analyses.length}, minmax(${CAR_W}px, 1fr))`;
+
   return (
     <>
-      {/* Cabeceras con coche + score */}
-      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: `120px repeat(${analyses.length}, minmax(0,1fr))` }}>
-        <div /> {/* hueco para columna de labels */}
-        {analyses.map(a => (
-          <VehicleColumnHeader key={a.id} run={a} isWinner={winnerId === a.id} />
-        ))}
-      </div>
+      {/* Hint scroll en móvil */}
+      <p className="text-[10px] text-muted-foreground md:hidden mb-2 flex items-center gap-1">
+        <ArrowRight className="w-3 h-3" /> Desliza horizontal para ver todos los coches
+      </p>
 
-      {/* Tabla side-by-side */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden mb-6">
-        {rows.map((row, ri) => {
-          const Icon = row.icon;
-          return (
-            <div
-              key={row.label}
-              className="grid items-center"
-              style={{ gridTemplateColumns: `120px repeat(${analyses.length}, minmax(0,1fr))` }}
-            >
-              <div className={`px-3 py-2.5 text-xs text-muted-foreground flex items-center gap-1.5 ${ri > 0 ? "border-t border-border" : ""}`}>
-                <Icon className="w-3 h-3" />{row.label}
-              </div>
-              {row.values.map((v, i) => {
-                const isWin = row.winnerIdx === i && v !== undefined;
-                return (
-                  <div
-                    key={i}
-                    className={`px-3 py-2.5 text-sm tabular-nums font-medium ${ri > 0 ? "border-t border-border" : ""} ${
-                      isWin ? "bg-primary/5 text-primary" : "text-foreground"
-                    } ${i < analyses.length - 1 ? "border-r border-border" : ""}`}
-                  >
-                    {v ?? <span className="text-muted-foreground/60">—</span>}
-                    {isWin && <span className="ml-1 text-[10px] uppercase tracking-wider text-primary/80">mejor</span>}
+      {/* Bloque scrollable: cabeceras + tabla comparten contenedor para alinear columnas */}
+      <div className="overflow-x-auto -mx-1 px-1 mb-6 pb-1">
+        <div style={{ minWidth: `${innerMinPx}px` }}>
+          {/* Cabeceras con coche + score */}
+          <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: gridCols }}>
+            <div /> {/* hueco para columna de labels */}
+            {analyses.map(a => (
+              <VehicleColumnHeader key={a.id} run={a} isWinner={winnerId === a.id} />
+            ))}
+          </div>
+
+          {/* Tabla side-by-side */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            {rows.map((row, ri) => {
+              const Icon = row.icon;
+              return (
+                <div
+                  key={row.label}
+                  className="grid items-stretch"
+                  style={{ gridTemplateColumns: gridCols }}
+                >
+                  <div className={`px-3 py-2.5 text-xs text-muted-foreground flex items-center gap-1.5 whitespace-nowrap ${ri > 0 ? "border-t border-border" : ""}`}>
+                    <Icon className="w-3 h-3 shrink-0" />{row.label}
                   </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  {row.values.map((v, i) => {
+                    const isWin = row.winnerIdx === i && v !== undefined;
+                    return (
+                      <div
+                        key={i}
+                        className={`relative px-3 py-2.5 text-sm tabular-nums font-medium whitespace-nowrap ${ri > 0 ? "border-t border-border" : ""} ${
+                          isWin ? "bg-primary/8 text-primary font-semibold border-l-2 border-l-primary" : "text-foreground"
+                        } ${i < analyses.length - 1 ? "border-r border-border" : ""}`}
+                        title={isWin ? "Ganador en este eje" : undefined}
+                      >
+                        {v ?? <span className="text-muted-foreground/60">—</span>}
+                        {isWin && (
+                          <Trophy className="w-3 h-3 text-primary/70 absolute top-1 right-1" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Ranking + ejes */}
