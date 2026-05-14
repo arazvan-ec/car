@@ -42,12 +42,12 @@ export function PageHeader({ title, subtitle, children }: {
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between mb-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
+    <div className="flex items-start justify-between gap-3 flex-wrap mb-8">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground break-words">{title}</h1>
+        {subtitle && <p className="text-sm text-muted-foreground mt-1 break-words">{subtitle}</p>}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}
     </div>
   );
 }
