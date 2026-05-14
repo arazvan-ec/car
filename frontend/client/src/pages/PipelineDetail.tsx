@@ -209,22 +209,30 @@ function StepCard({ step }: { step: PipelineStep }) {
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function PipelineDetail() {
-  const [, params] = useRoute("/pipelines/:id");
+  const [, p1] = useRoute("/pipelines/:id");
+  const [, p2] = useRoute("/analyses/:id");
+  const [, p3] = useRoute("/comparisons/:id");
+  const params = p1 ?? p2 ?? p3;
   const { data: run, loading, error } = useApiData<PipelineRun>(
     params?.id ? `/api/v1/pipelines/runs/${params.id}` : ""
   );
 
   const subject = run?.subject_data as Record<string, string> | undefined;
-  const title = subject
-    ? [subject.brand, subject.model, subject.year, subject.trim].filter(Boolean).join(" ")
-    : "Pipeline";
+  const isComparison = run?.pipeline_type === "vehicle_comparison";
+  const title = isComparison
+    ? "Comparativa"
+    : subject
+      ? [subject.brand, subject.model, subject.year, subject.trim].filter(Boolean).join(" ")
+      : "Pipeline";
+  const backHref = isComparison ? "/comparisons" : run ? "/analyses" : "/pipelines";
+  const backLabel = isComparison ? "comparativas" : run ? "análisis" : "pipelines";
 
   return (
     <Layout>
       <div className="mb-6">
-        <Link href="/pipelines">
+        <Link href={backHref}>
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" /> Volver a pipelines
+            <ArrowLeft className="w-3.5 h-3.5" /> Volver a {backLabel}
           </span>
         </Link>
       </div>

@@ -4,7 +4,6 @@
  */
 import { Link, useLocation } from "wouter";
 import {
-  BarChart3,
   Car,
   GitCompare,
   LayoutDashboard,
@@ -17,8 +16,7 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/analyses", label: "Análisis", icon: Car },
   { href: "/comparisons", label: "Comparativas", icon: GitCompare },
-  { href: "/stats", label: "Estadísticas", icon: BarChart3 },
-  { href: "/pipelines", label: "Pipelines", icon: Workflow },
+  { href: "/pipelines", label: "Todos los pipelines", icon: Workflow },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
